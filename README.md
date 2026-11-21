@@ -1,10 +1,7 @@
-# [<img src="./browser/icon.png" width="40" align="left" alt="Dimcord">]Dimcord
+# <img src="./browser/icon.png" width="40" align="left" alt="Dimcord"> Dimcord
 
 
-Dimcord is a custom client mod for Discord with over 300+ plugins.
-## Creds to
-
-Thank you to [Vendicated](https://github.com/Vendicated) for creating [Vencord](https://github.com/Vendicated/Vencord), [Equicord](https://github.com/Equicord/Equicord), and [Suncord](https://github.com/verticalsync/Suncord) by [verticalsync](https://github.com/verticalsync) for helping when needed.
+Dimcord is a custom client mod for Discord.
 
 ## Disclaimer
 
