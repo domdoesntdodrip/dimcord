@@ -78,7 +78,7 @@ function BadgeDirectoryDetailContent({
     }, [isContributor, targetUserId, user?.username]);
 
     if (isContributor) {
-        const ContributedHyperLink = <Link href="https://github.com/Equicord/Equicord">contributed</Link>;
+        const ContributedHyperLink = <Link href="https://github.com/domdoesntdodrip/dimcord">contributed</Link>;
 
         return (
             <div className="vc-badge-directory-section">

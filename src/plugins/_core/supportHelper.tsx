@@ -410,7 +410,7 @@ export default definePlugin({
                         <div>
                             <Paragraph>You are using an externally updated Dimcord version, which we do not provide support for!</Paragraph>
                             <Paragraph className={Margins.top8}>
-                                Please either switch to an <Link href="https://equicord.org/download">officially supported version of Dimcord</Link>, or
+                                Please either switch to an <Link href="https://github.com/domdoesntdodrip/dimcord">officially supported version of Dimcord</Link>, or
                                 contact your package maintainer for support instead.
                             </Paragraph>
                         </div>

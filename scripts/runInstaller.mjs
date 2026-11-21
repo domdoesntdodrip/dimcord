@@ -142,8 +142,56 @@ if (fs.existsSync(permanent)) {
     }
 }
 
+async function safeUnlink(filePath, maxRetries = 8, delay = 600) {
+    if (!existsSync(filePath)) return true;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            unlinkSync(filePath);
+            return true;
+        } catch (e) {
+            if (e.code === "EBUSY" || e.code === "EPERM") {
+                killDiscord();
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                throw e;
+            }
+        }
+    }
+    try {
+        const trash = filePath + ".trash." + Date.now();
+        renameSync(filePath, trash);
+        setTimeout(() => { try { unlinkSync(trash); } catch {} }, 5000);
+        return true;
+    } catch {
+        throw new Error(`Cannot delete ${filePath}: file is locked by Discord. Please ensure Discord is fully closed.`);
+    }
+}
+
+async function safeRename(src, dest, maxRetries = 8, delay = 600) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            renameSync(src, dest);
+            return true;
+        } catch (e) {
+            if (e.code === "EBUSY" || e.code === "EPERM") {
+                killDiscord();
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                throw e;
+            }
+        }
+    }
+    throw new Error(`Cannot rename ${src}: file is locked by Discord.`);
+}
+
 async function inject(target) {
     console.log(`\nPatching ${target.name}...`);
+    if (isDiscordRunning()) {
+        console.log("Closing running Discord processes...");
+        killDiscord();
+        await new Promise(r => setTimeout(r, 1000));
+    }
+
     const appAsar = join(target.resources, "app.asar");
     const backupAsar = join(target.resources, "_app.asar");
 
@@ -160,10 +208,10 @@ async function inject(target) {
 
     if (!existsSync(backupAsar)) {
         console.log("Backing up original app.asar -> _app.asar...");
-        renameSync(appAsar, backupAsar);
+        await safeRename(appAsar, backupAsar);
     } else if (existsSync(appAsar)) {
         // Remove old injection asar to replace cleanly
-        unlinkSync(appAsar);
+        await safeUnlink(appAsar);
     }
 
     console.log("Writing Dimcord injection loader...");
@@ -173,8 +221,14 @@ async function inject(target) {
     return true;
 }
 
-function uninject(target) {
+async function uninject(target) {
     console.log(`\nUnpatching ${target.name}...`);
+    if (isDiscordRunning()) {
+        console.log("Closing running Discord processes...");
+        killDiscord();
+        await new Promise(r => setTimeout(r, 1000));
+    }
+
     const appAsar = join(target.resources, "app.asar");
     const backupAsar = join(target.resources, "_app.asar");
     const appDir = join(target.resources, "app");
@@ -185,9 +239,9 @@ function uninject(target) {
 
     if (existsSync(backupAsar)) {
         if (existsSync(appAsar)) {
-            unlinkSync(appAsar);
+            await safeUnlink(appAsar);
         }
-        renameSync(backupAsar, appAsar);
+        await safeRename(backupAsar, appAsar);
         console.log(`\x1b[32m✔ Successfully uninstalled Dimcord from ${target.name}!\x1b[0m`);
         return true;
     } else {
