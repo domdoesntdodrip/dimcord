@@ -1,4 +1,4 @@
-# [<img src="./browser/icon.png" width="40" align="left" alt="Dimcord">]
+# <img src="./browser/icon.png" width="40" align="left" alt="Dimcord"> Dimcord
 
 
 Dimcord is a custom client mod for Discord.
