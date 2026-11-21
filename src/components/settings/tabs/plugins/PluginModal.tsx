@@ -263,7 +263,7 @@ export default function PluginModal({ plugin, onRestartNeeded, onClose, transiti
                             {!pluginMeta.userPlugin && <>
                                 <WebsiteButton
                                     text="Website"
-                                    href={isEquicordPlugin ? `https://equicord.org/plugins/${plugin.name}` : `https://vencord.dev/plugins/${plugin.name}`}
+                                    href={`https://github.com/domdoesntdodrip/dimcord/tree/master/${pluginMeta.folderName}`}
                                 />
                                 <GithubButton
                                     text="Source Code"

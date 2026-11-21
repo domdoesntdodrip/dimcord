@@ -141,7 +141,7 @@ async function generateDebugInfoMessage() {
 
     const info = {
         Dimcord:
-            `v${VERSION} • [${gitHashShort}](<https://github.com/Equicord/Equicord/commit/${gitHash}>)` +
+            `v${VERSION} • [${gitHashShort}](<https://github.com/domdoesntdodrip/dimcord/commit/${gitHash}>)` +
             `${IS_EQUIBOP ? "" : SettingsPlugin.getVersionInfo()} - ${Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(BUILD_TIMESTAMP)}`,
         Client: `${RELEASE_CHANNEL} ~ ${clientString}`,
         Platform: platformDisplay
@@ -298,8 +298,8 @@ function DevBuildConfirmModal(props: RenderModalProps) {
                 <Paragraph>You are using a custom build of Dimcord, which we do not provide support for!</Paragraph>
 
                 <Paragraph className={Margins.top8}>
-                    We only provide support for <Link href="https://equicord.org/download">official builds</Link>.
-                    Either <Link href="https://equicord.org/download">switch to an official build</Link> or figure your issue out yourself.
+                    We only provide support for <Link href="https://github.com/domdoesntdodrip/dimcord">official builds</Link>.
+                    Either <Link href="https://github.com/domdoesntdodrip/dimcord">switch to an official build</Link> or figure your issue out yourself.
                 </Paragraph>
 
                 <Paragraph size="md" weight="bold" className={Margins.top8}>You will be banned from receiving support if you ignore this rule.</Paragraph>
