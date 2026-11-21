@@ -2,10 +2,10 @@
 // @name            Dimcord
 // @description     A Discord client mod - Web version
 // @version         %version%
-// @author          Dimcord (https://github.com/Equicord)
-// @namespace       https://github.com/Equicord/Equicord
-// @supportURL      https://github.com/Equicord/Equicord
-// @icon            https://raw.githubusercontent.com/Equicord/Equicord/refs/heads/main/browser/icon.png
+// @author          Dimcord (https://github.com/domdoesntdodrip/dimcord)
+// @namespace       https://github.com/domdoesntdodrip/dimcord
+// @supportURL      https://github.com/domdoesntdodrip/dimcord
+// @icon            https://raw.githubusercontent.com/domdoesntdodrip/dimcord/refs/heads/master/browser/icon.png
 // @license         GPL-3.0
 // @match           *://*.discord.com/*
 // @grant           GM_xmlhttpRequest

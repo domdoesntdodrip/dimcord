@@ -167,6 +167,18 @@ if (!process.argv.includes("--skip-extension")) {
         buildExtension("firefox-unpacked", ["background.js", "content.js", "manifestv2.json", "icon.png"]),
     ]);
 
+    // Also sync dist and vendor into browser/ directory so loading browser/ directly as unpacked extension works
+    try {
+        await mkdir("browser/dist", { recursive: true });
+        await writeFile("browser/dist/Equicord.js", await readFile("dist/browser/extension.js"));
+        await writeFile("browser/dist/Equicord.css", await readFile("dist/browser/extension.css"));
+        const monacoFiles = await loadDir("node_modules/@vencord/monaco-editor/dist", "browser/vendor/monaco");
+        await Promise.all(Object.entries(monacoFiles).map(async ([dest, content]) => {
+            await mkdir(join(dest, ".."), { recursive: true });
+            await writeFile(dest, content);
+        }));
+    } catch {}
+
     Zip.zip("dist/browser/chromium-unpacked", (_err, zip) => {
         zip.compress().save("dist/extension-chrome.zip");
         console.info("Packed Chromium Extension written to dist/extension-chrome.zip");

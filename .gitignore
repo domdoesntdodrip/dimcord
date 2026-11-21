@@ -1,4 +1,6 @@
 dist
+browser/dist
+browser/vendor
 node_modules
 .VSCodeCounter
 .vars
