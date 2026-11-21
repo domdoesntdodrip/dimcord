@@ -1,7 +1,5 @@
-# [<img src="./browser/icon.png" width="40" align="left" alt="Dimcord">](https://github.com/Equicord/Equicord) Dimcord
+# [<img src="./browser/icon.png" width="40" align="left" alt="Dimcord">] Dimcord
 
-[![Tests](https://github.com/Equicord/Equicord/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/Equicord/Equicord/actions/workflows/test.yml)
-[![Discord](https://img.shields.io/discord/1173279886065029291.svg?color=768AD4&label=Discord&logo=discord&logoColor=white)](https://equicord.org/discord)
 
 Dimcord is a custom client mod for Discord with over 300+ plugins.
 ## Creds to
