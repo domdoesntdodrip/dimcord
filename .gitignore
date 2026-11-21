@@ -1,6 +1,8 @@
 dist
 browser/dist
 browser/vendor
+browser/_metadata
+browser/*.zip
 node_modules
 .VSCodeCounter
 .vars
