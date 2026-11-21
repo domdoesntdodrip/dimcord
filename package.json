@@ -28,7 +28,7 @@
         "generateEquicordPluginJson": "tsx scripts/generatePluginList.ts --equicord",
         "generateVencordPluginJson": "tsx scripts/generatePluginList.ts --vencord",
         "generateTypes": "tspc --emitDeclarationOnly --declaration --outDir packages/vencord-types --allowJs false",
-        "build:installer": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:winexe /optimize+ /win32icon:installer\\icon.ico /r:System.Windows.Forms.dll /out:DimcordInstaller.exe installer\\Launcher.cs",
+        "build:installer": "powershell -ExecutionPolicy Bypass -File scripts/buildInstaller.ps1",
         "gui": "electron installer/gui/main.js",
         "installer": "electron installer/gui/main.js",
         "inject": "node scripts/runInstaller.mjs -- --install",

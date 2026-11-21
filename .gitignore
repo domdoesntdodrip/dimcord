@@ -5,6 +5,7 @@ node_modules
 .secrets
 .input
 .vs
+installer/payload.zip
 
 *.exe
 !DimcordInstaller.exe
