@@ -261,7 +261,7 @@ export const gitRemotePlugin = {
                         .replace("git@github.com:", "")
                         .replace(/.git$/, "");
                 } catch {
-                    remote = "Dimcord/Dimcord";
+                    remote = "domdoesntdodrip/dimcord";
                 }
             }
 

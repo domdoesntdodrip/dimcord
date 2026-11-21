@@ -28,6 +28,7 @@ import {
     ChangelogHistory,
     clearChangelogHistory,
     clearIndividualLog,
+    fetchRecentCommits,
     formatTimestamp,
     getChangelogHistory,
     getCommitsSinceLastSeen,
@@ -38,6 +39,7 @@ import {
     getNewSettingsSize,
     getUpdatedPlugins,
     initializeChangelog,
+    normalizeRepoUrl,
     saveUpdateSession,
     UpdateSession,
 } from "./changelogManager";
@@ -337,72 +339,46 @@ function ChangelogContent() {
         setError(null);
 
         try {
-            // check if the repository was recently refreshed and that nothing has changed
             const updates = await VencordNative.updater.getUpdates();
-            const lastRepoCheck = await getLastRepositoryCheckHash();
-            const currentRepoHash =
-                updates.ok && updates.value.length > 0
-                    ? updates.value[0].hash
-                    : gitHash;
+            const repoSlug = normalizeRepoUrl(repo) || "domdoesntdodrip/dimcord";
 
-            // If repository state hasn't changed since last check
-            if (lastRepoCheck === currentRepoHash) {
-                setIsLoading(false);
-                setRecentlyChecked(true);
-                const logged = await ensureLocalUpdateLogged();
-                if (!logged) {
-                    setChangelog([]);
-                    showToast({
-                        text: "Already up to date with repository",
-                        position: "bottom"
-                    });
-                }
-                return;
-            }
+            if (updates.ok && updates.value && updates.value.length > 0) {
+                setChangelog(updates.value);
 
-            if (updates.ok && updates.value) {
-                if (updates.value.length > 0) {
-                    setChangelog(updates.value);
+                const newPlgs = await getNewPlugins();
+                const updatedPlgs = await getUpdatedPlugins();
+                const newSettings = await getNewSettings();
+                setNewPlugins(newPlgs);
+                setUpdatedPlugins(updatedPlgs);
 
-                    const newPlgs = await getNewPlugins();
-                    const updatedPlgs = await getUpdatedPlugins();
-                    const newSettings = await getNewSettings();
-                    setNewPlugins(newPlgs);
-                    setUpdatedPlugins(updatedPlgs);
-
-                    await saveUpdateSession(
-                        updates.value,
-                        newPlgs,
-                        updatedPlgs,
-                        newSettings,
-                        true,
-                    );
-                    await loadChangelogHistory();
-                    setRecentlyChecked(true);
-
-                    showToast({
-                        text: `Found ${updates.value.length} commit${updates.value.length === 1 ? "" : "s"} from repository`,
-                        variant: "success",
-                        position: "bottom"
-                    });
-                } else {
-                    const logged = await ensureLocalUpdateLogged();
-                    setRecentlyChecked(true);
-                    showToast({
-                        text: logged
-                            ? "Logged commits from your latest update"
-                            : "Repository is up to date with your local copy",
-                        variant: logged ? "success" : "default",
-                        position: "bottom"
-                    });
-                    if (!logged) {
-                        setChangelog([]);
-                    }
-                }
-            } else if (!updates.ok) {
-                throw new Error(
-                    updates.error?.message || "Failed to fetch from repository",
+                await saveUpdateSession(
+                    updates.value,
+                    newPlgs,
+                    updatedPlgs,
+                    newSettings,
+                    true,
                 );
+                await loadChangelogHistory();
+                setRecentlyChecked(true);
+
+                showToast({
+                    text: `Found ${updates.value.length} commit${updates.value.length === 1 ? "" : "s"} from repository`,
+                    variant: "success",
+                    position: "bottom"
+                });
+            } else {
+                // If no new commits ahead of local version, show the recent commits from the repository
+                const recentCommits = await fetchRecentCommits(repoSlug, 15);
+                if (recentCommits.length > 0) {
+                    setChangelog(recentCommits);
+                }
+                await ensureLocalUpdateLogged();
+                setRecentlyChecked(true);
+                showToast({
+                    text: "Changelog is synced with repository",
+                    variant: "default",
+                    position: "bottom"
+                });
             }
         } catch (err: any) {
             UpdateLogger.error("Failed to fetch commits from repository", err);
@@ -411,7 +387,6 @@ function ChangelogContent() {
                 "Failed to connect to repository. Check your internet connection.";
             setError(errorMessage);
 
-            // funny little error toast hopefully doesn't happen!
             showToast({
                 text: "Could not fetch commits from repository",
                 variant: "critical",
@@ -420,18 +395,13 @@ function ChangelogContent() {
         } finally {
             setIsLoading(false);
         }
-    }, [repoPending, repoErr, loadNewPlugins, loadChangelogHistory]);
+    }, [repo, repoPending, repoErr, loadNewPlugins, loadChangelogHistory, ensureLocalUpdateLogged]);
 
     React.useEffect(() => {
         const loadInitialData = async () => {
             if (!repoPending && !repoErr) {
                 await loadNewPlugins();
-                const logged = await ensureLocalUpdateLogged();
-                if (!logged) {
-                    await fetchChangelog();
-                } else {
-                    setIsLoading(false);
-                }
+                await fetchChangelog();
             } else if (!repoPending) {
                 // perseverance
                 await loadNewPlugins();
@@ -444,7 +414,6 @@ function ChangelogContent() {
         repoErr,
         fetchChangelog,
         loadNewPlugins,
-        ensureLocalUpdateLogged,
     ]);
 
     const toggleLogExpanded = (logId: string) => {

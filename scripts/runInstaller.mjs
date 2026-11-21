@@ -196,11 +196,18 @@ function uninject(target) {
     }
 }
 
+const DISCORD_PROCESSES = [
+    "Discord.exe",
+    "DiscordPTB.exe",
+    "DiscordCanary.exe",
+    "DiscordDevelopment.exe",
+];
+
 function isDiscordRunning() {
     try {
         if (process.platform === "win32") {
-            const out = execSync("tasklist", { encoding: "utf-8" });
-            return out.toLowerCase().includes("discord.exe");
+            const out = execSync("tasklist", { encoding: "utf-8" }).toLowerCase();
+            return DISCORD_PROCESSES.some(proc => out.includes(proc.toLowerCase()));
         } else {
             const out = execSync("pgrep -i discord", { encoding: "utf-8" });
             return out.trim().length > 0;
@@ -213,7 +220,9 @@ function isDiscordRunning() {
 function killDiscord() {
     try {
         if (process.platform === "win32") {
-            execSync("taskkill /F /IM Discord.exe /T", { stdio: "ignore" });
+            for (const proc of DISCORD_PROCESSES) {
+                try { execSync(`taskkill /F /IM "${proc}" /T`, { stdio: "ignore" }); } catch {}
+            }
         } else {
             execSync("pkill -9 -i discord", { stdio: "ignore" });
         }

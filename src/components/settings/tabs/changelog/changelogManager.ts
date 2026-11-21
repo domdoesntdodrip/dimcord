@@ -39,29 +39,29 @@ const GITHUB_COMPARE_ENDPOINT = "https://api.github.com/repos";
 
 type KnownPluginSettingsMap = Map<string, Set<string>>;
 
-function normalizeRepoUrl(repoUrl: string | null | undefined): string | null {
-    if (!repoUrl) return null;
+export function normalizeRepoUrl(repoUrl: string | null | undefined): string | null {
+    if (!repoUrl) return "domdoesntdodrip/dimcord";
     try {
         const normalized = repoUrl.replace(/^git\+/, "");
         const url = new URL(normalized);
-        if (!url.hostname.endsWith("github.com")) return null;
+        if (!url.hostname.endsWith("github.com")) return "domdoesntdodrip/dimcord";
         const segments = url.pathname.replace(/\.git$/, "").split("/").filter(Boolean);
-        if (segments.length < 2) return null;
+        if (segments.length < 2) return "domdoesntdodrip/dimcord";
         return `${segments[0]}/${segments[1]}`;
     } catch {
-        return null;
+        return "domdoesntdodrip/dimcord";
     }
 }
 
-async function fetchCommitsBetween(
-    repoSlug: string,
-    fromHash: string,
-    toHash: string,
+export async function fetchRecentCommits(
+    repoSlug: string = "domdoesntdodrip/dimcord",
+    count = 15,
 ): Promise<ChangelogEntry[]> {
-    if (!repoSlug || typeof fetch !== "function") return [];
+    if (typeof fetch !== "function") return [];
     try {
+        const slug = normalizeRepoUrl(repoSlug) ?? "domdoesntdodrip/dimcord";
         const res = await fetch(
-            `${GITHUB_COMPARE_ENDPOINT}/${repoSlug}/compare/${fromHash}...${toHash}`,
+            `${GITHUB_COMPARE_ENDPOINT}/${slug}/commits?per_page=${count}`,
             {
                 headers: {
                     Accept: "application/vnd.github+json",
@@ -72,7 +72,58 @@ async function fetchCommitsBetween(
 
         if (!res.ok) return [];
         const data = await res.json();
-        if (!data || !Array.isArray(data.commits)) return [];
+        if (!Array.isArray(data)) return [];
+
+        return data.map((commit: any) => {
+            const message: string = commit?.commit?.message ?? "";
+            const summary = message.split("\n")[0] || "No message";
+            const authorName =
+                commit?.commit?.author?.name ||
+                commit?.author?.login ||
+                "Unknown";
+            const timestamp = commit?.commit?.author?.date
+                ? Date.parse(commit.commit.author.date)
+                : undefined;
+
+            return {
+                hash: commit?.sha || "",
+                author: authorName,
+                message: summary,
+                timestamp: Number.isNaN(timestamp) ? undefined : timestamp,
+            } as ChangelogEntry;
+        });
+    } catch (err) {
+        console.warn("Failed to fetch recent commits", err);
+        return [];
+    }
+}
+
+async function fetchCommitsBetween(
+    repoSlug: string,
+    fromHash: string,
+    toHash: string,
+): Promise<ChangelogEntry[]> {
+    const slug = normalizeRepoUrl(repoSlug) || "domdoesntdodrip/dimcord";
+    if (typeof fetch !== "function") return [];
+    if (!fromHash || fromHash === "unknown" || fromHash === toHash) {
+        return fetchRecentCommits(slug);
+    }
+    try {
+        const res = await fetch(
+            `${GITHUB_COMPARE_ENDPOINT}/${slug}/compare/${fromHash}...${toHash}`,
+            {
+                headers: {
+                    Accept: "application/vnd.github+json",
+                    "Cache-Control": "no-cache",
+                },
+            },
+        );
+
+        if (!res.ok) return fetchRecentCommits(slug);
+        const data = await res.json();
+        if (!data || !Array.isArray(data.commits) || data.commits.length === 0) {
+            return fetchRecentCommits(slug);
+        }
 
         return data.commits.map((commit: any) => {
             const message: string = commit?.commit?.message ?? "";
@@ -94,7 +145,7 @@ async function fetchCommitsBetween(
         });
     } catch (err) {
         console.warn("Failed to fetch commits between hashes", err);
-        return [];
+        return fetchRecentCommits(slug);
     }
 }
 
@@ -393,13 +444,14 @@ export async function getCommitsSinceLastSeen(
     repoUrl: string,
 ): Promise<ChangelogEntry[]> {
     const lastSeenHash = await getLastSeenHash();
-    if (!lastSeenHash || lastSeenHash === "unknown" || lastSeenHash === gitHash)
-        return [];
+    const repoSlug = normalizeRepoUrl(repoUrl) || "domdoesntdodrip/dimcord";
 
-    const repoSlug = normalizeRepoUrl(repoUrl);
-    if (!repoSlug) return [];
+    if (!lastSeenHash || lastSeenHash === "unknown" || lastSeenHash === gitHash) {
+        return fetchRecentCommits(repoSlug);
+    }
 
-    return fetchCommitsBetween(repoSlug, lastSeenHash, gitHash);
+    const commits = await fetchCommitsBetween(repoSlug, lastSeenHash, gitHash);
+    return commits.length > 0 ? commits : fetchRecentCommits(repoSlug);
 }
 
 export async function updateKnownSettings(): Promise<void> {

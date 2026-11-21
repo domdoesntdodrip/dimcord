@@ -165,24 +165,81 @@ function isInstalled(resourcesDir) {
            fs.existsSync(path.join(resourcesDir, "app"));
 }
 
+const DISCORD_PROCESSES = [
+    "Discord.exe",
+    "DiscordPTB.exe",
+    "DiscordCanary.exe",
+    "DiscordDevelopment.exe",
+];
+
 function isDiscordRunning() {
     try {
         if (process.platform === "win32") {
-            return execSync("tasklist", { encoding: "utf-8" }).toLowerCase().includes("discord.exe");
+            const out = execSync("tasklist", { encoding: "utf-8" }).toLowerCase();
+            return DISCORD_PROCESSES.some(proc => out.includes(proc.toLowerCase()));
         } else {
             return execSync("pgrep -i discord", { encoding: "utf-8" }).trim().length > 0;
         }
     } catch { return false; }
 }
 
-function killDiscord() {
-    try {
-        if (process.platform === "win32") {
-            execSync("taskkill /F /IM Discord.exe /T", { stdio: "ignore" });
-        } else {
-            execSync("pkill -9 -i discord", { stdio: "ignore" });
+async function killDiscord() {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            if (process.platform === "win32") {
+                for (const proc of DISCORD_PROCESSES) {
+                    try { execSync(`taskkill /F /IM "${proc}" /T`, { stdio: "ignore" }); } catch {}
+                }
+            } else {
+                execSync("pkill -9 -i discord", { stdio: "ignore" });
+            }
+        } catch {}
+
+        await new Promise(r => setTimeout(r, 600));
+        if (!isDiscordRunning()) break;
+    }
+}
+
+async function safeUnlink(filePath, maxRetries = 8, delay = 600) {
+    if (!fs.existsSync(filePath)) return true;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            fs.unlinkSync(filePath);
+            return true;
+        } catch (e) {
+            if (e.code === "EBUSY" || e.code === "EPERM") {
+                await killDiscord();
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                throw e;
+            }
         }
-    } catch {}
+    }
+    try {
+        const trash = filePath + ".trash." + Date.now();
+        fs.renameSync(filePath, trash);
+        setTimeout(() => { try { fs.unlinkSync(trash); } catch {} }, 5000);
+        return true;
+    } catch (e) {
+        throw new Error(`Cannot delete ${path.basename(filePath)}: file is locked by Discord. Ensure Discord is closed.`);
+    }
+}
+
+async function safeRename(src, dest, maxRetries = 8, delay = 600) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            fs.renameSync(src, dest);
+            return true;
+        } catch (e) {
+            if (e.code === "EBUSY" || e.code === "EPERM") {
+                await killDiscord();
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                throw e;
+            }
+        }
+    }
+    throw new Error(`Cannot rename ${path.basename(src)}: file is locked by Discord.`);
 }
 
 ipcMain.handle("get-installs", () => {
@@ -199,8 +256,8 @@ ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
         log(`Preparing to patch ${targetName || "Discord"}...`);
         if (isDiscordRunning()) {
             log("Closing running Discord processes...");
-            killDiscord();
-            await new Promise(r => setTimeout(r, 1800));
+            await killDiscord();
+            await new Promise(r => setTimeout(r, 1000));
         }
 
         if (!fs.existsSync(DIST_DESKTOP) && !fs.existsSync(PERMANENT_INSTALL_DIR)) {
@@ -223,10 +280,10 @@ ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
 
         if (!fs.existsSync(backupAsar)) {
             log("Creating original backup: app.asar -> _app.asar");
-            fs.renameSync(appAsar, backupAsar);
+            await safeRename(appAsar, backupAsar);
         } else if (fs.existsSync(appAsar)) {
             log("Removing previous patch asar...");
-            fs.unlinkSync(appAsar);
+            await safeUnlink(appAsar);
         }
 
         log("Generating Dimcord injection package...");
@@ -267,8 +324,8 @@ ipcMain.handle("uninject", async (_e, resourcesDir, targetName) => {
         log(`Restoring original files for ${targetName || "Discord"}...`);
         if (isDiscordRunning()) {
             log("Closing running Discord processes...");
-            killDiscord();
-            await new Promise(r => setTimeout(r, 1800));
+            await killDiscord();
+            await new Promise(r => setTimeout(r, 1000));
         }
 
         const appAsar = path.join(resourcesDir, "app.asar");
@@ -280,8 +337,12 @@ ipcMain.handle("uninject", async (_e, resourcesDir, targetName) => {
         }
 
         if (fs.existsSync(backupAsar)) {
-            if (fs.existsSync(appAsar)) fs.unlinkSync(appAsar);
-            fs.renameSync(backupAsar, appAsar);
+            if (fs.existsSync(appAsar)) {
+                log("Removing injection loader...");
+                await safeUnlink(appAsar);
+            }
+            log("Restoring original _app.asar -> app.asar...");
+            await safeRename(backupAsar, appAsar);
             log("Original app.asar restored. Vanilla Discord reinstated.");
             return { success: true };
         } else {

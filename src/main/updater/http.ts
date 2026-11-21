@@ -41,40 +41,75 @@ async function githubGet<T = any>(endpoint: string) {
 }
 
 async function listUpdates() {
-    const isOutdated = await fetchUpdate();
-    if (!isOutdated) return [];
+    try {
+        const commits = await githubGet("/commits?per_page=30");
+        if (!Array.isArray(commits)) return [];
 
-    const data = await githubGet(`/compare/${gitHash}...HEAD`);
+        const currentHash = gitHash;
+        const currentIdx = commits.findIndex((c: any) =>
+            c.sha === currentHash ||
+            c.sha.startsWith(currentHash) ||
+            (currentHash && currentHash !== "custom" && currentHash.startsWith(c.sha))
+        );
 
-    return data.commits.map((c: any) => ({
-        hash: c.sha,
-        author: c.author?.login ?? c.commit?.author?.name ?? "Unknown Author",
-        message: c.commit.message.split("\n")[0]
-    }));
+        if (currentIdx === 0) {
+            // Top commit matches local gitHash - up to date
+            return [];
+        }
+
+        if (currentIdx > 0) {
+            // Returns only the commits ahead of our current version
+            return commits.slice(0, currentIdx).map((c: any) => ({
+                hash: c.sha,
+                author: c.author?.login ?? c.commit?.author?.name ?? "Unknown Author",
+                message: c.commit.message.split("\n")[0]
+            }));
+        }
+
+        // If local version isn't in top 30 (e.g. initial dev build / custom), return latest commits
+        return commits.slice(0, 5).map((c: any) => ({
+            hash: c.sha,
+            author: c.author?.login ?? c.commit?.author?.name ?? "Unknown Author",
+            message: c.commit.message.split("\n")[0]
+        }));
+    } catch (e) {
+        return [];
+    }
 }
 
 async function fetchUpdate() {
-    const data = await githubGet("/releases/latest");
+    try {
+        const data = await githubGet("/releases/latest");
+        if (data?.assets) {
+            const hash = data.name.slice(data.name.lastIndexOf(" ") + 1);
+            if (hash === gitHash) return false;
 
-    const hash = data.name.slice(data.name.lastIndexOf(" ") + 1);
-    if (hash === gitHash)
-        return false;
+            const asset = data.assets.find((a: any) => a.name === ASAR_FILE || a.name.endsWith(".asar") || a.name.endsWith(".zip"));
+            if (asset) {
+                PendingUpdate = asset.browser_download_url;
+                return true;
+            }
+        }
+    } catch {}
 
-    const asset = data.assets.find(a => a.name === ASAR_FILE);
-    PendingUpdate = asset.browser_download_url;
-
-    return true;
+    const updates = await listUpdates();
+    return updates.length > 0;
 }
 
 async function applyUpdate() {
     if (!PendingUpdate) return true;
 
-    const data = await fetchBuffer(PendingUpdate);
-    writeFileSync(__dirname, data, { flush: true });
-
-    PendingUpdate = null;
-
-    return true;
+    try {
+        const data = await fetchBuffer(PendingUpdate);
+        if (__dirname.endsWith(".asar")) {
+            writeFileSync(__dirname, data, { flush: true });
+        }
+        PendingUpdate = null;
+        return true;
+    } catch (err) {
+        console.error("Failed to apply update:", err);
+        return false;
+    }
 }
 
 const HttpUpdater: Updater = {
