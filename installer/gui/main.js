@@ -12,6 +12,8 @@ const os = require("os");
 
 const BASE_DIR = path.join(__dirname, "..", "..");
 const DIST_DESKTOP = path.join(BASE_DIR, "dist", "desktop");
+const APPDATA_DIR = process.env.APPDATA || (process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support") : path.join(os.homedir(), ".config"));
+const PERMANENT_INSTALL_DIR = path.join(APPDATA_DIR, "Dimcord", "dist", "desktop");
 
 let mainWindow;
 
@@ -201,8 +203,15 @@ ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
             await new Promise(r => setTimeout(r, 1800));
         }
 
-        if (!fs.existsSync(DIST_DESKTOP)) {
+        if (!fs.existsSync(DIST_DESKTOP) && !fs.existsSync(PERMANENT_INSTALL_DIR)) {
             return { success: false, error: "Build directory missing (dist/desktop). Run pnpm build first." };
+        }
+
+        // Copy files to permanent location in AppData
+        if (fs.existsSync(DIST_DESKTOP)) {
+            log("Installing Dimcord files into AppData/Dimcord...");
+            fs.mkdirSync(PERMANENT_INSTALL_DIR, { recursive: true });
+            fs.cpSync(DIST_DESKTOP, PERMANENT_INSTALL_DIR, { recursive: true });
         }
 
         const appAsar = path.join(resourcesDir, "app.asar");
@@ -226,7 +235,17 @@ ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
         fs.mkdirSync(tmpDir, { recursive: true });
 
         try {
-            const indexCode = `require(${JSON.stringify(DIST_DESKTOP)});`;
+            const indexCode = `
+const path = require("path");
+const fs = require("fs");
+const appData = process.env.APPDATA || (process.platform === "darwin" ? path.join(process.env.HOME, "Library", "Application Support") : path.join(process.env.HOME, ".config"));
+const permanent = path.join(appData, "Dimcord", "dist", "desktop");
+if (fs.existsSync(permanent)) {
+    require(permanent);
+} else {
+    require(${JSON.stringify(DIST_DESKTOP)});
+}
+`.trim();
             const pkgCode = JSON.stringify({ name: "discord", main: "index.js" }, null, 2);
             fs.writeFileSync(path.join(tmpDir, "index.js"), indexCode, "utf-8");
             fs.writeFileSync(path.join(tmpDir, "package.json"), pkgCode, "utf-8");

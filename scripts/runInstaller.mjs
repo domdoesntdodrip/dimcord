@@ -8,7 +8,7 @@ import "./checkNodeVersion.js";
 
 import * as asar from "@electron/asar";
 import { execSync } from "child_process";
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from "fs";
 import os from "os";
 import { dirname, join } from "path";
 import readline from "readline/promises";
@@ -16,6 +16,8 @@ import { fileURLToPath } from "url";
 
 const BASE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST_DESKTOP = join(BASE_DIR, "dist", "desktop");
+const APPDATA_DIR = process.env.APPDATA || (process.platform === "darwin" ? join(os.homedir(), "Library", "Application Support") : join(os.homedir(), ".config"));
+const PERMANENT_INSTALL_DIR = join(APPDATA_DIR, "Dimcord", "dist", "desktop");
 
 console.log("========================================");
 console.log("           Dimcord Installer            ");
@@ -118,7 +120,17 @@ async function createInjectionAsar(targetAsarPath) {
         const indexPath = join(tmpDir, "index.js");
         const pkgPath = join(tmpDir, "package.json");
 
-        const indexCode = `require(${JSON.stringify(DIST_DESKTOP)});`;
+        const indexCode = `
+const path = require("path");
+const fs = require("fs");
+const appData = process.env.APPDATA || (process.platform === "darwin" ? path.join(process.env.HOME, "Library", "Application Support") : path.join(process.env.HOME, ".config"));
+const permanent = path.join(appData, "Dimcord", "dist", "desktop");
+if (fs.existsSync(permanent)) {
+    require(permanent);
+} else {
+    require(${JSON.stringify(DIST_DESKTOP)});
+}
+`.trim();
         const pkgCode = JSON.stringify({ name: "discord", main: "index.js" }, null, 2);
 
         writeFileSync(indexPath, indexCode, "utf-8");
@@ -138,6 +150,12 @@ async function inject(target) {
     if (!existsSync(appAsar) && !existsSync(backupAsar)) {
         console.error(`Error: Could not find app.asar in ${target.resources}`);
         return false;
+    }
+
+    if (existsSync(DIST_DESKTOP)) {
+        console.log("Copying Dimcord files to permanent location in AppData...");
+        mkdirSync(PERMANENT_INSTALL_DIR, { recursive: true });
+        cpSync(DIST_DESKTOP, PERMANENT_INSTALL_DIR, { recursive: true });
     }
 
     if (!existsSync(backupAsar)) {

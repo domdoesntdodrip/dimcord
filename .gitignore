@@ -4,6 +4,7 @@ node_modules
 .vars
 .secrets
 .input
+.vs
 
 *.exe
 !DimcordInstaller.exe
