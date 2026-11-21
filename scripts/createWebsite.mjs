@@ -18,12 +18,12 @@ const html = `<!DOCTYPE html>
     <style>
         :root {
             --bg: #050505;
-            --surface: #0c0c0c;
-            --surface-elevated: #141414;
-            --surface-hover: #1c1c1c;
+            --surface: #0a0a0c;
+            --surface-elevated: #121215;
+            --surface-hover: #1a1a1f;
             --border: rgba(255, 255, 255, 0.08);
-            --border-hover: rgba(255, 255, 255, 0.2);
-            --border-strong: rgba(255, 255, 255, 0.35);
+            --border-hover: rgba(255, 255, 255, 0.22);
+            --border-strong: rgba(255, 255, 255, 0.4);
             --text-primary: #f5f5f7;
             --text-secondary: #8e8e93;
             --text-tertiary: #52525b;
@@ -48,6 +48,24 @@ const html = `<!DOCTYPE html>
             position: relative;
         }
 
+        /* Ambient interactive cursor spotlight */
+        #cursor-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 700px;
+            height: 700px;
+            margin-left: -350px;
+            margin-top: -350px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 35%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+            transform: translate3d(-1000px, -1000px, 0);
+            transition: opacity 0.3s ease;
+            will-change: transform;
+        }
+
         /* Subtle grid background */
         .grid-bg {
             position: fixed;
@@ -56,12 +74,24 @@ const html = `<!DOCTYPE html>
             width: 100%;
             height: 100%;
             background-image: 
-                radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 60%),
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 100% 100%, 32px 32px, 32px 32px;
+                radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 100% 100%, 36px 36px, 36px 36px;
             pointer-events: none;
             z-index: 0;
+        }
+
+        /* Ambient animated particle canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.65;
         }
 
         .container {
@@ -69,19 +99,20 @@ const html = `<!DOCTYPE html>
             margin: 0 auto;
             padding: 0 24px;
             position: relative;
-            z-index: 1;
+            z-index: 2;
         }
 
         /* Nav */
         header {
-            padding: 24px 0;
+            padding: 22px 0;
             border-bottom: 1px solid var(--border);
             position: sticky;
             top: 0;
-            background: rgba(5, 5, 5, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             z-index: 100;
+            transition: border-color 0.3s ease;
         }
 
         .nav {
@@ -103,11 +134,11 @@ const html = `<!DOCTYPE html>
             height: 28px;
             border-radius: 6px;
             filter: grayscale(100%) contrast(1.1);
-            transition: filter 0.2s ease, transform 0.2s ease;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .logo-wrap:hover .logo-img {
-            transform: scale(1.05);
+            transform: scale(1.12) rotate(-3deg);
         }
 
         .logo-text {
@@ -127,32 +158,51 @@ const html = `<!DOCTYPE html>
             color: var(--text-secondary);
             font-size: 13px;
             text-decoration: none;
-            transition: color 0.15s ease;
-            font-weight: 400;
+            transition: color 0.2s ease;
+            position: relative;
+            padding: 4px 0;
+        }
+
+        .nav-link::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0%;
+            height: 1px;
+            background: #ffffff;
+            transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .nav-link:hover {
             color: var(--text-primary);
         }
 
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
         .btn-nav {
             background: var(--text-primary);
             color: var(--bg);
-            padding: 7px 14px;
+            padding: 8px 16px;
             border-radius: 6px;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             text-decoration: none;
-            transition: background 0.15s ease, opacity 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid transparent;
         }
 
         .btn-nav:hover {
-            opacity: 0.88;
+            background: #ffffff;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
         }
 
         /* Hero */
         .hero {
-            padding: 100px 0 70px;
+            padding: 105px 0 75px;
             text-align: center;
             display: flex;
             flex-direction: column;
@@ -162,8 +212,8 @@ const html = `<!DOCTYPE html>
         .badge {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 5px 12px;
+            gap: 9px;
+            padding: 6px 14px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 9999px;
@@ -172,6 +222,14 @@ const html = `<!DOCTYPE html>
             color: var(--text-secondary);
             margin-bottom: 28px;
             letter-spacing: -0.01em;
+            animation: fadeInDown 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .badge:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
         }
 
         .badge-dot {
@@ -180,37 +238,60 @@ const html = `<!DOCTYPE html>
             background: #ffffff;
             border-radius: 50%;
             display: inline-block;
-            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+            animation: pulseGlow 2.5s infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% {
+                box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 12px rgba(255, 255, 255, 1);
+                transform: scale(1.3);
+            }
         }
 
         .hero-title {
-            font-size: clamp(44px, 7vw, 76px);
+            font-size: clamp(44px, 7.5vw, 82px);
             font-weight: 700;
             letter-spacing: -0.04em;
             line-height: 1.05;
-            max-width: 820px;
-            margin-bottom: 20px;
-            background: linear-gradient(180deg, #ffffff 30%, #a1a1aa 100%);
+            max-width: 860px;
+            margin-bottom: 22px;
+            background: linear-gradient(110deg, #71717a 0%, #ffffff 25%, #ffffff 50%, #a1a1aa 75%, #ffffff 100%);
+            background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            animation: textShimmer 9s linear infinite, fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.1s, 0.1s;
+        }
+
+        @keyframes textShimmer {
+            0% { background-position: 200% center; }
+            100% { background-position: -200% center; }
         }
 
         .hero-sub {
-            font-size: clamp(16px, 2.2vw, 19px);
+            font-size: clamp(16px, 2.2vw, 19.5px);
             color: var(--text-secondary);
-            max-width: 580px;
-            margin-bottom: 36px;
+            max-width: 590px;
+            margin-bottom: 40px;
             font-weight: 400;
             letter-spacing: -0.01em;
+            animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.2s;
         }
 
         .hero-cta {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             flex-wrap: wrap;
             justify-content: center;
             margin-bottom: 48px;
+            animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.3s;
         }
 
         .btn-primary {
@@ -219,38 +300,45 @@ const html = `<!DOCTYPE html>
             gap: 9px;
             background: #ffffff;
             color: #000000;
-            padding: 12px 22px;
+            padding: 13px 24px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 600;
             text-decoration: none;
-            transition: transform 0.15s ease, opacity 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+            position: relative;
+            overflow: hidden;
         }
 
         .btn-primary:hover {
-            opacity: 0.92;
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
         }
 
         .btn-secondary {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 9px;
             background: var(--surface);
             color: var(--text-primary);
             border: 1px solid var(--border);
-            padding: 12px 20px;
+            padding: 13px 22px;
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
             text-decoration: none;
-            transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .btn-secondary:hover {
             border-color: var(--border-hover);
             background: var(--surface-hover);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
         }
 
         /* CLI snippet box */
@@ -260,20 +348,25 @@ const html = `<!DOCTYPE html>
             gap: 12px;
             background: var(--surface);
             border: 1px solid var(--border);
-            padding: 9px 14px;
+            padding: 11px 16px;
             border-radius: 8px;
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: 12.5px;
             color: var(--text-secondary);
-            max-width: 460px;
+            max-width: 500px;
             cursor: pointer;
-            transition: border-color 0.15s ease;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
+            animation: fadeInUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation-delay: 0.4s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         }
 
         .cli-box:hover {
-            border-color: var(--border-hover);
+            border-color: var(--border-strong);
             color: var(--text-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
         }
 
         .cli-prompt {
@@ -290,40 +383,48 @@ const html = `<!DOCTYPE html>
         .cli-copy-icon {
             margin-left: auto;
             color: var(--text-tertiary);
-            transition: color 0.15s ease;
+            transition: color 0.2s ease, transform 0.2s ease;
             flex-shrink: 0;
         }
 
         .cli-box:hover .cli-copy-icon {
             color: var(--text-primary);
+            transform: scale(1.1);
         }
 
         /* Showcase Preview */
         .preview-section {
-            padding: 40px 0 90px;
+            padding: 30px 0 95px;
+            perspective: 1200px;
         }
 
         .window-frame {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
+            border-radius: 14px;
             overflow: hidden;
-            box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
-            transition: border-color 0.2s ease;
+            box-shadow: 0 32px 80px -16px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--border);
+            transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+            transform-style: preserve-3d;
+        }
+
+        .window-frame:hover {
+            border-color: var(--border-hover);
+            box-shadow: 0 40px 100px -16px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 255, 255, 0.04);
         }
 
         .window-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 13px 18px;
             background: rgba(255, 255, 255, 0.02);
             border-bottom: 1px solid var(--border);
         }
 
         .window-controls {
             display: flex;
-            gap: 7px;
+            gap: 8px;
         }
 
         .window-dot {
@@ -331,20 +432,25 @@ const html = `<!DOCTYPE html>
             height: 10px;
             border-radius: 50%;
             background: var(--border);
+            transition: background 0.2s ease;
         }
 
+        .window-frame:hover .window-dot:nth-child(1) { background: #52525b; }
+        .window-frame:hover .window-dot:nth-child(2) { background: #71717a; }
+        .window-frame:hover .window-dot:nth-child(3) { background: #a1a1aa; }
+
         .window-title {
-            font-size: 11px;
+            font-size: 11.5px;
             font-family: var(--font-mono);
             color: var(--text-tertiary);
             letter-spacing: -0.01em;
         }
 
         .window-body {
-            padding: 36px;
+            padding: 40px;
             display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 36px;
+            grid-template-columns: 330px 1fr;
+            gap: 40px;
             align-items: center;
         }
 
@@ -358,21 +464,38 @@ const html = `<!DOCTYPE html>
         .preview-mascot-card {
             background: #000000;
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 32px 24px;
+            border-radius: 12px;
+            padding: 36px 28px;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+
+        .preview-mascot-card:hover {
+            border-color: var(--border-hover);
         }
 
         .preview-mascot-img {
-            width: 128px;
-            height: 128px;
+            width: 135px;
+            height: 135px;
             object-fit: contain;
-            margin-bottom: 20px;
-            filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.6));
+            margin-bottom: 22px;
+            filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.7));
+            animation: mascotFloat 4.5s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        @keyframes mascotFloat {
+            0%, 100% {
+                transform: translateY(0px) rotate(0deg);
+            }
+            50% {
+                transform: translateY(-9px) rotate(-1.5deg);
+            }
         }
 
         .preview-badge-status {
@@ -380,76 +503,94 @@ const html = `<!DOCTYPE html>
             font-size: 11px;
             color: var(--text-secondary);
             background: var(--surface-elevated);
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 9999px;
             border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preview-badge-status::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            background: #ffffff;
+            border-radius: 50%;
+            display: inline-block;
         }
 
         .preview-content {
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 22px;
         }
 
         .preview-heading {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 600;
             letter-spacing: -0.02em;
         }
 
         .preview-desc {
             color: var(--text-secondary);
-            font-size: 14px;
-            line-height: 1.6;
+            font-size: 14.5px;
+            line-height: 1.65;
         }
 
         .metric-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
+            gap: 14px;
             margin-top: 6px;
         }
 
         .metric-card {
             background: var(--surface-elevated);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 14px 16px;
+            border-radius: 10px;
+            padding: 16px 18px;
+            transition: all 0.25s ease;
+        }
+
+        .metric-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
         }
 
         .metric-val {
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: -0.02em;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
             margin-bottom: 2px;
             color: #ffffff;
         }
 
         .metric-lbl {
-            font-size: 11px;
+            font-size: 10.5px;
             font-family: var(--font-mono);
             color: var(--text-tertiary);
             text-transform: uppercase;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.05em;
         }
 
-        /* Bento Grid */
+        /* Bento Grid with Spotlight Glow */
         .section-header {
             text-align: center;
-            margin-bottom: 50px;
+            margin-bottom: 54px;
         }
 
         .section-tag {
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: 11.5px;
             color: var(--text-tertiary);
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             margin-bottom: 12px;
         }
 
         .section-title {
-            font-size: clamp(28px, 4vw, 40px);
+            font-size: clamp(28px, 4.2vw, 42px);
             font-weight: 600;
             letter-spacing: -0.03em;
             margin-bottom: 14px;
@@ -458,15 +599,15 @@ const html = `<!DOCTYPE html>
         .section-sub {
             color: var(--text-secondary);
             font-size: 15px;
-            max-width: 520px;
+            max-width: 530px;
             margin: 0 auto;
         }
 
         .bento {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin-bottom: 100px;
+            gap: 18px;
+            margin-bottom: 110px;
         }
 
         @media (max-width: 820px) {
@@ -476,19 +617,44 @@ const html = `<!DOCTYPE html>
         }
 
         .bento-card {
+            position: relative;
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 28px;
+            border-radius: 14px;
+            padding: 30px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            transition: border-color 0.2s ease, transform 0.2s ease;
+            transition: border-color 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+        }
+
+        /* Dynamic interactive border spotlight */
+        .bento-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: radial-gradient(400px circle at var(--mouse-x, 0px) var(--mouse-y, 0px), rgba(255, 255, 255, 0.28), transparent 45%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .bento-card:hover::before {
+            opacity: 1;
         }
 
         .bento-card:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-2px);
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.16);
         }
 
         .bento-card.span-2 {
@@ -509,21 +675,21 @@ const html = `<!DOCTYPE html>
         }
 
         .bento-title {
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 600;
             letter-spacing: -0.02em;
             margin-bottom: 10px;
         }
 
         .bento-desc {
-            font-size: 13.5px;
+            font-size: 13.8px;
             color: var(--text-secondary);
-            line-height: 1.6;
+            line-height: 1.62;
         }
 
         /* Install tab switcher */
         .install-section {
-            padding: 80px 0 110px;
+            padding: 85px 0 120px;
             border-top: 1px solid var(--border);
         }
 
@@ -531,11 +697,11 @@ const html = `<!DOCTYPE html>
             display: flex;
             justify-content: center;
             gap: 8px;
-            margin-bottom: 32px;
+            margin-bottom: 34px;
             background: var(--surface);
             border: 1px solid var(--border);
-            padding: 4px;
-            border-radius: 10px;
+            padding: 5px;
+            border-radius: 12px;
             width: fit-content;
             margin-left: auto;
             margin-right: auto;
@@ -548,22 +714,27 @@ const html = `<!DOCTYPE html>
             font-family: var(--font-sans);
             font-size: 13px;
             font-weight: 500;
-            padding: 8px 18px;
-            border-radius: 6px;
+            padding: 9px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
         }
 
         .tab-btn.active {
             background: var(--surface-elevated);
             color: #ffffff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
 
         .tab-content {
             display: none;
-            max-width: 680px;
+            max-width: 700px;
             margin: 0 auto;
+            animation: fadeIn 0.35s ease;
         }
 
         .tab-content.active {
@@ -573,24 +744,26 @@ const html = `<!DOCTYPE html>
         .code-block {
             background: #000000;
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 24px;
             font-family: var(--font-mono);
             font-size: 13px;
             color: var(--text-primary);
             position: relative;
             overflow-x: auto;
-            line-height: 1.6;
+            line-height: 1.65;
+            box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.8);
         }
 
         .code-block code {
             display: block;
+            margin-bottom: 4px;
         }
 
         .code-step {
             display: flex;
-            gap: 12px;
-            margin-bottom: 12px;
+            gap: 14px;
+            margin-bottom: 14px;
             align-items: flex-start;
         }
 
@@ -599,40 +772,91 @@ const html = `<!DOCTYPE html>
         }
 
         .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: var(--surface-elevated);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 11px;
             color: var(--text-tertiary);
-            user-select: none;
+            flex-shrink: 0;
+            margin-top: 1px;
         }
 
         /* Toast notification */
         .toast {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
+            bottom: 28px;
+            right: 28px;
             background: #ffffff;
             color: #000000;
             font-size: 13px;
-            font-weight: 500;
-            padding: 10px 18px;
+            font-weight: 600;
+            padding: 11px 20px;
             border-radius: 8px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
             opacity: 0;
-            transform: translateY(12px);
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(16px) scale(0.95);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             pointer-events: none;
             z-index: 9999;
         }
 
         .toast.show {
             opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Scroll reveal animation utilities */
+        .reveal {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
             transform: translateY(0);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         /* Footer */
         footer {
             border-top: 1px solid var(--border);
-            padding: 48px 0;
+            padding: 50px 0;
             color: var(--text-secondary);
             font-size: 13px;
+            position: relative;
+            z-index: 2;
         }
 
         .footer-inner {
@@ -658,7 +882,7 @@ const html = `<!DOCTYPE html>
         .footer-link {
             color: var(--text-secondary);
             text-decoration: none;
-            transition: color 0.15s ease;
+            transition: color 0.2s ease;
         }
 
         .footer-link:hover {
@@ -668,6 +892,8 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
     <div class="grid-bg"></div>
+    <canvas id="particle-canvas"></canvas>
+    <div id="cursor-glow"></div>
 
     <header>
         <div class="container nav">
@@ -714,8 +940,8 @@ const html = `<!DOCTYPE html>
         </section>
 
         <!-- Preview Showcase -->
-        <section class="preview-section">
-            <div class="window-frame">
+        <section class="preview-section reveal">
+            <div class="window-frame" id="interactive-window">
                 <div class="window-header">
                     <div class="window-controls">
                         <div class="window-dot"></div>
@@ -737,15 +963,15 @@ const html = `<!DOCTYPE html>
                         </p>
                         <div class="metric-grid">
                             <div class="metric-card">
-                                <div class="metric-val">1.6 MB</div>
+                                <div class="metric-val" data-counter="1.6" data-suffix=" MB">1.6 MB</div>
                                 <div class="metric-lbl">Installer Size</div>
                             </div>
                             <div class="metric-card">
-                                <div class="metric-val">0 ms</div>
+                                <div class="metric-val" data-counter="0" data-suffix=" ms">0 ms</div>
                                 <div class="metric-lbl">Cloud Latency</div>
                             </div>
                             <div class="metric-card">
-                                <div class="metric-val">100%</div>
+                                <div class="metric-val" data-counter="100" data-suffix="%">100%</div>
                                 <div class="metric-lbl">Open Source</div>
                             </div>
                         </div>
@@ -755,7 +981,7 @@ const html = `<!DOCTYPE html>
         </section>
 
         <!-- Bento Features Grid -->
-        <section id="features">
+        <section id="features" class="reveal">
             <div class="section-header">
                 <div class="section-tag">Architecture</div>
                 <h2 class="section-title">Engineered without compromises.</h2>
@@ -763,37 +989,37 @@ const html = `<!DOCTYPE html>
             </div>
 
             <div class="bento">
-                <div class="bento-card span-2">
+                <div class="bento-card span-2 spotlight-card">
                     <div class="bento-num">01 / LOCAL FIRST</div>
                     <h3 class="bento-title">Cloud telemetry completely excised.</h3>
                     <p class="bento-desc">All tracking endpoints, remote sync hooks, and cloud storage tabs have been deleted from the codebase. Your settings, plugins, and custom styles remain strictly on your hardware.</p>
                 </div>
 
-                <div class="bento-card">
+                <div class="bento-card spotlight-card">
                     <div class="bento-num">02 / STANDALONE</div>
                     <h3 class="bento-title">100% Portable .exe</h3>
                     <p class="bento-desc">A single executable built with native C# WPF. No Node.js runtime, Git binaries, or command prompt required.</p>
                 </div>
 
-                <div class="bento-card">
+                <div class="bento-card spotlight-card">
                     <div class="bento-num">03 / ECOSYSTEM</div>
                     <h3 class="bento-title">Extensive Plugin Suite</h3>
                     <p class="bento-desc">Comes packed with hundreds of vetted plugins: message utilities, notification tweaks, themes, visualizers, and performance boosters.</p>
                 </div>
 
-                <div class="bento-card span-2">
+                <div class="bento-card span-2 spotlight-card">
                     <div class="bento-num">04 / REPO INTEGRATED</div>
                     <h3 class="bento-title">Native GitHub Changelog & Updater</h3>
                     <p class="bento-desc">Directly checks for commit updates from <code>domdoesntdodrip/dimcord</code> using GitHub's REST API. Inspect new commits, read changelogs, and keep your installation current in real time.</p>
                 </div>
 
-                <div class="bento-card">
+                <div class="bento-card spotlight-card">
                     <div class="bento-num">05 / BROWSER READY</div>
                     <h3 class="bento-title">Unpacked Web Extension</h3>
                     <p class="bento-desc">Prefer Discord in Chrome or Firefox? Load Dimcord directly as a Manifest V3 extension with full feature parity.</p>
                 </div>
 
-                <div class="bento-card span-2">
+                <div class="bento-card span-2 spotlight-card">
                     <div class="bento-num">06 / PERMANENT INJECTION</div>
                     <h3 class="bento-title">Decoupled AppData Storage</h3>
                     <p class="bento-desc">Injects cleanly into <code>%AppData%\\Dimcord\\dist\\desktop</code>. You can delete or move installer files anytime without breaking your Discord installation.</p>
@@ -802,7 +1028,7 @@ const html = `<!DOCTYPE html>
         </section>
 
         <!-- Install Section -->
-        <section id="install" class="install-section">
+        <section id="install" class="install-section reveal">
             <div class="section-header">
                 <div class="section-tag">Quickstart</div>
                 <h2 class="section-title">Install in seconds.</h2>
@@ -886,6 +1112,125 @@ const html = `<!DOCTYPE html>
     <div id="toast" class="toast">Command copied to clipboard</div>
 
     <script>
+        // 1. Ambient Cursor Spotlight Tracking
+        const cursorGlow = document.getElementById('cursor-glow');
+        let mouseX = -1000, mouseY = -1000;
+        let currentX = -1000, currentY = -1000;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        function animateGlow() {
+            currentX += (mouseX - currentX) * 0.15;
+            currentY += (mouseY - currentY) * 0.15;
+            cursorGlow.style.transform = \`translate3d(\${currentX}px, \${currentY}px, 0)\`;
+            requestAnimationFrame(animateGlow);
+        }
+        animateGlow();
+
+        // 2. Bento Card Interactive Spotlight
+        document.querySelectorAll('.spotlight-card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.setProperty('--mouse-x', \`\${x}px\`);
+                card.style.setProperty('--mouse-y', \`\${y}px\`);
+            });
+        });
+
+        // 3. 3D Tilt on Window Preview Frame
+        const windowFrame = document.getElementById('interactive-window');
+        if (windowFrame) {
+            windowFrame.addEventListener('mousemove', (e) => {
+                const rect = windowFrame.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -3.5;
+                const rotateY = ((x - centerX) / centerX) * 3.5;
+                windowFrame.style.transform = \`rotateX(\${rotateX}deg) rotateY(\${rotateY}deg)\`;
+            });
+            windowFrame.addEventListener('mouseleave', () => {
+                windowFrame.style.transform = 'rotateX(0deg) rotateY(0deg)';
+            });
+        }
+
+        // 4. Ambient Floating Dust Particles Canvas
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        const particles = Array.from({ length: 45 }, () => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: (Math.random() - 0.5) * 0.35,
+            radius: Math.random() * 1.2 + 0.5,
+            alpha: Math.random() * 0.4 + 0.1
+        }));
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = "#ffffff";
+
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0) p.x = width;
+                if (p.x > width) p.x = 0;
+                if (p.y < 0) p.y = height;
+                if (p.y > height) p.y = 0;
+
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw connecting micro-lines if close
+                for (let j = i + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        ctx.strokeStyle = "rgba(255, 255, 255, " + (0.07 * (1 - dist / 100)) + ")";
+                        ctx.lineWidth = 0.6;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(drawParticles);
+        }
+        drawParticles();
+
+        // 5. Scroll Reveal with Intersection Observer
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.12 });
+
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+        // 6. Interactive CLI copy & Toast
         function copyCli() {
             const cmd = 'irm https://raw.githubusercontent.com/domdoesntdodrip/dimcord/master/DimcordInstaller.exe -o DimcordInstaller.exe; .\\\\DimcordInstaller.exe';
             navigator.clipboard.writeText(cmd).then(() => {
@@ -900,6 +1245,7 @@ const html = `<!DOCTYPE html>
             setTimeout(() => toast.classList.remove("show"), 2200);
         }
 
+        // 7. Tab Switching
         function switchTab(tabId, el) {
             document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
             document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -912,4 +1258,4 @@ const html = `<!DOCTYPE html>
 
 fs.writeFileSync("C:/Users/domcu/Downloads/dimcord/index.html", html, "utf-8");
 fs.writeFileSync("C:/Users/domcu/Downloads/dimcord/dimcord-main/index.html", html, "utf-8");
-console.log("Website generated successfully!");
+console.log("Animated website generated successfully!");
