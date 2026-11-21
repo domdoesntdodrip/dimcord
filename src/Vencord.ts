@@ -38,6 +38,7 @@ import { StartAt } from "@utils/types";
 import { showNotice } from "./api/Notices";
 import { initPluginManager, PMLogger, startAllPlugins } from "./api/PluginManager";
 import { Settings } from "./api/Settings";
+import { loadCustomPlugins } from "./utils/customPlugins";
 import { relaunch } from "./utils/native";
 import { checkForUpdates, update, UpdateLogger } from "./utils/updater";
 import { onceReady } from "./webpack";
@@ -116,6 +117,7 @@ async function init() {
     }
 }
 
+loadCustomPlugins();
 initPluginManager();
 initStyles();
 startAllPlugins(StartAt.Init);

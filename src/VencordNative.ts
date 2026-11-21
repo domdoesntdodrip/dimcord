@@ -6,6 +6,7 @@
 
 import type { Settings } from "@api/Settings";
 import type { CspRequestResult } from "@main/csp/manager";
+import type { CustomPluginFile } from "@main/ipcMain";
 import type { PluginIpcMappings } from "@main/ipcPlugins";
 import { UserThemeHeader } from "@main/themes";
 import { UpdateData } from "@main/updater";
@@ -44,6 +45,14 @@ export default {
         getSystemValues: () => invoke<Record<string, string>>(IpcEvents.GET_THEME_SYSTEM_VALUES),
 
         openFolder: () => invoke<void>(IpcEvents.OPEN_THEMES_FOLDER),
+    },
+
+    customPlugins: {
+        getPlugins: () => invoke<string[]>(IpcEvents.GET_CUSTOM_PLUGINS),
+        getPluginsSync: () => sendSync<CustomPluginFile[]>(IpcEvents.GET_CUSTOM_PLUGINS_SYNC),
+        installPlugin: (fileName: string, code: string) => invoke<string>(IpcEvents.UPLOAD_CUSTOM_PLUGIN, fileName, code),
+        deletePlugin: (fileName: string) => invoke<void>(IpcEvents.DELETE_CUSTOM_PLUGIN, fileName),
+        openFolder: () => invoke<void>(IpcEvents.OPEN_CUSTOM_PLUGINS_FOLDER),
     },
 
     updater: {

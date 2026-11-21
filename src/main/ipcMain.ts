@@ -23,22 +23,60 @@ import "./settings";
 import { debounce } from "@shared/debounce";
 import { IpcEvents } from "@shared/IpcEvents";
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell, systemPreferences } from "electron";
-import { FSWatcher, mkdirSync, readFileSync, watch, writeFileSync } from "fs";
-import { open, readdir, readFile, unlink } from "fs/promises";
+import { FSWatcher, mkdirSync, readdirSync, readFileSync, watch, writeFileSync } from "fs";
+import { open, readdir, readFile, unlink, writeFile } from "fs/promises";
 import { release } from "os";
-import { join } from "path";
+import { basename, join } from "path";
 
 import { registerCspIpcHandlers } from "./csp/manager";
 import { getThemeInfo, stripBOM, UserThemeHeader } from "./themes";
-import { ALLOWED_PROTOCOLS, QUICK_CSS_PATH, SETTINGS_DIR, THEMES_DIR } from "./utils/constants";
+import { ALLOWED_PROTOCOLS, CUSTOM_PLUGINS_DIR, QUICK_CSS_PATH, SETTINGS_DIR, THEMES_DIR } from "./utils/constants";
 import { ensureSafePath } from "./utils/ensureSafePath";
 import { makeLinksOpenExternally } from "./utils/externalLinks";
 
 const RENDERER_CSS_PATH = join(__dirname, "renderer.css");
 
 mkdirSync(THEMES_DIR, { recursive: true });
+mkdirSync(CUSTOM_PLUGINS_DIR, { recursive: true });
 
 registerCspIpcHandlers();
+
+export interface CustomPluginFile {
+    fileName: string;
+    code: string;
+}
+
+function listCustomPluginNames() {
+    return readdirSync(CUSTOM_PLUGINS_DIR).filter(file => file.endsWith(".js")).sort();
+}
+
+ipcMain.handle(IpcEvents.GET_CUSTOM_PLUGINS, () => listCustomPluginNames());
+ipcMain.on(IpcEvents.GET_CUSTOM_PLUGINS_SYNC, e => {
+    try {
+        e.returnValue = listCustomPluginNames().map(fileName => ({
+            fileName,
+            code: readFileSync(join(CUSTOM_PLUGINS_DIR, fileName), "utf-8")
+        } satisfies CustomPluginFile));
+    } catch (err) {
+        console.error("[Vencord] Failed to read custom plugins", err);
+        e.returnValue = [];
+    }
+});
+ipcMain.handle(IpcEvents.UPLOAD_CUSTOM_PLUGIN, async (_, fileName: string, code: string) => {
+    const safeName = basename(fileName);
+    if (!safeName.endsWith(".js") || safeName.startsWith(".")) throw new Error("Custom plugins must be .js files.");
+    const safePath = ensureSafePath(CUSTOM_PLUGINS_DIR, safeName);
+    if (!safePath) throw new Error("Invalid plugin file name.");
+
+    await writeFile(safePath, code);
+    return safeName;
+});
+ipcMain.handle(IpcEvents.DELETE_CUSTOM_PLUGIN, (_, fileName: string) => {
+    const safePath = ensureSafePath(CUSTOM_PLUGINS_DIR, basename(fileName));
+    if (!safePath) return Promise.reject(`Unsafe path ${fileName}`);
+    return unlink(safePath);
+});
+ipcMain.handle(IpcEvents.OPEN_CUSTOM_PLUGINS_FOLDER, () => shell.openPath(CUSTOM_PLUGINS_DIR));
 
 function readCss() {
     return readFile(QUICK_CSS_PATH, "utf-8").catch(() => "");
