@@ -1,0 +1,130 @@
+/*!
+ * Vencord, a modification for Discord's desktop app
+ * Copyright (c) 2022 Vendicated and contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+// DO NOT REMOVE UNLESS YOU WISH TO FACE THE WRATH OF THE CIRCULAR DEPENDENCY DEMON!!!!!!!
+import "~plugins";
+import "./fixWeirdAppRegionBug.css";
+
+import nativeTitleBarStyles from "./nativeTitleBar.css?managed";
+
+export * as Api from "./api";
+export * as Plugins from "./api/PluginManager";
+export * as Components from "./components";
+export * as Util from "./utils";
+export * as Updater from "./utils/updater";
+export * as Webpack from "./webpack";
+export * as WebpackPatcher from "./webpack/patchWebpack";
+export { PlainSettings, Settings };
+
+import { enableStyle, initStyles } from "@api/Styles";
+import { openSettingsTabModal, UpdaterTab } from "@components/settings";
+import { StartAt } from "@utils/types";
+
+import { showNotice } from "./api/Notices";
+import { initPluginManager, PMLogger, startAllPlugins } from "./api/PluginManager";
+import { Settings } from "./api/Settings";
+import { relaunch } from "./utils/native";
+import { checkForUpdates, update, UpdateLogger } from "./utils/updater";
+import { onceReady } from "./webpack";
+import { patches } from "./webpack/patchWebpack";
+
+if (IS_REPORTER) {
+    require("./debug/runReporter");
+}
+
+// Cloud sync removed — no-op
+async function syncSettings() { }
+
+let notifiedForUpdatesThisSession = false;
+
+async function runUpdateCheck() {
+    if (IS_UPDATER_DISABLED) return;
+
+    try {
+        const isOutdated = await checkForUpdates();
+        if (!isOutdated) return;
+
+        if (Settings.autoUpdate) {
+            await update();
+            if (Settings.autoUpdateNotification) {
+                if (notifiedForUpdatesThisSession) return;
+                notifiedForUpdatesThisSession = true;
+
+                showNotice(
+                    "Dimcord has been updated!",
+                    "Restart",
+                    relaunch
+                );
+            }
+            return;
+        }
+
+        if (notifiedForUpdatesThisSession) return;
+        notifiedForUpdatesThisSession = true;
+
+        showNotice(
+            "A new version of Dimcord is available!",
+            "View Update",
+            () => openSettingsTabModal(UpdaterTab!)
+        );
+    } catch (err) {
+        UpdateLogger.error("Failed to check for updates", err);
+    }
+}
+
+async function init() {
+    await onceReady;
+    startAllPlugins(StartAt.WebpackReady);
+
+    syncSettings();
+
+    if (!IS_DEV && !IS_WEB && !IS_UPDATER_DISABLED) {
+        runUpdateCheck();
+
+        // this tends to get really annoying, so only do this if the user has auto-update without notification enabled
+        if (Settings.autoUpdate && !Settings.autoUpdateNotification) {
+            setInterval(runUpdateCheck, 1000 * 60 * 30); // 30 minutes
+        }
+    }
+
+    if (IS_DEV) {
+        const pendingPatches = patches.filter(p => !p.all && p.predicate?.() !== false);
+        if (pendingPatches.length)
+            PMLogger.warn(
+                "Webpack has finished initialising, but some patches haven't been applied yet.",
+                "This might be expected since some Modules are lazy loaded, but please verify",
+                "that all plugins are working as intended.",
+                "You are seeing this warning because this is a Development build of Dimcord.",
+                "\nThe following patches have not been applied:",
+                "\n\n" + pendingPatches.map(p => `${p.plugin}: ${p.find}`).join("\n")
+            );
+    }
+}
+
+initPluginManager();
+initStyles();
+startAllPlugins(StartAt.Init);
+init();
+
+document.addEventListener("DOMContentLoaded", () => {
+    startAllPlugins(StartAt.DOMContentLoaded);
+
+    if (IS_DISCORD_DESKTOP && Settings.nativeTitleBar) {
+        enableStyle(nativeTitleBarStyles);
+    }
+}, { once: true });

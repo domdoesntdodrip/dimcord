@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dimcord Patcher</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+        --bg-window: #1e1f22;
+        --bg-surface: #2b2d31;
+        --bg-surface-alt: #232428;
+        --bg-hover: #35373c;
+        --bg-active: #404249;
+        --border-subtle: #3f4147;
+        --border-hairline: rgba(255, 255, 255, 0.07);
+        --text-normal: #dbdee1;
+        --text-muted: #949ba4;
+        --text-header: #f2f3f5;
+        --text-link: #00a8fc;
+        --brand: #5865f2;
+        --brand-hover: #4752c4;
+        --brand-active: #3c45a5;
+        --status-green: #23a55a;
+        --status-red: #f23f43;
+        --status-yellow: #f0b232;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "gg sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg-window);
+        color: var(--text-normal);
+        user-select: none;
+        overflow: hidden;
+        height: 100vh;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .window {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        border: 1px solid var(--border-hairline);
+    }
+
+    /* ── Native-feel Title Bar ── */
+    .titlebar {
+        height: 34px;
+        background: #111214;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-left: 10px;
+        -webkit-app-region: drag;
+        border-bottom: 1px solid var(--border-hairline);
+        flex-shrink: 0;
+    }
+
+    .titlebar-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-header);
+        letter-spacing: 0.2px;
+    }
+
+    .titlebar-icon {
+        width: 18px;
+        height: 18px;
+        object-fit: contain;
+    }
+
+    .titlebar-tag {
+        font-size: 10px;
+        font-weight: 500;
+        background: #2b2d31;
+        color: var(--text-muted);
+        padding: 1px 6px;
+        border-radius: 3px;
+    }
+
+    .window-controls {
+        display: flex;
+        height: 100%;
+        -webkit-app-region: no-drag;
+    }
+
+    .win-btn {
+        width: 44px;
+        height: 100%;
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+
+    .win-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-header);
+    }
+
+    .win-btn.close:hover {
+        background: #da373c;
+        color: #ffffff;
+    }
+
+    /* ── Utility Toolbar / Segmented Tabs ── */
+    .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        background: var(--bg-surface-alt);
+        border-bottom: 1px solid var(--border-hairline);
+        flex-shrink: 0;
+    }
+
+    .segmented-control {
+        display: flex;
+        background: #111214;
+        padding: 2px;
+        border-radius: 4px;
+        border: 1px solid var(--border-hairline);
+    }
+
+    .segment-tab {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 12px;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .segment-tab:hover {
+        color: var(--text-normal);
+    }
+
+    .segment-tab.active {
+        background: var(--bg-surface);
+        color: var(--text-header);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .toolbar-actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    .tool-btn {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        color: var(--text-normal);
+        font-size: 11px;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .tool-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-header);
+    }
+
+    /* ── Main View Area ── */
+    .main-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 14px 6px;
+        overflow: hidden;
+        gap: 10px;
+    }
+
+    /* ── Table Header & Target List ── */
+    .table-container {
+        flex: 1;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .table-header {
+        display: grid;
+        grid-template-columns: 180px 90px 1fr 100px;
+        padding: 6px 12px;
+        background: var(--bg-surface-alt);
+        border-bottom: 1px solid var(--border-hairline);
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+
+    .table-body {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .table-body::-webkit-scrollbar { width: 6px; }
+    .table-body::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 3px; }
+
+    .table-row {
+        display: grid;
+        grid-template-columns: 180px 90px 1fr 100px;
+        align-items: center;
+        padding: 9px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        cursor: pointer;
+        transition: background 0.1s;
+        position: relative;
+    }
+
+    .table-row:hover {
+        background: var(--bg-hover);
+    }
+
+    .table-row.selected {
+        background: var(--bg-active);
+    }
+
+    .table-row.selected::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: var(--brand);
+    }
+
+    .col-channel {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: var(--text-header);
+    }
+
+    .channel-icon {
+        width: 16px;
+        height: 16px;
+        fill: var(--text-muted);
+        flex-shrink: 0;
+    }
+
+    .table-row.selected .channel-icon {
+        fill: #8591ff;
+    }
+
+    .col-version {
+        font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .col-path {
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 12px;
+    }
+
+    .col-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .status-dot.green { background: var(--status-green); }
+    .status-dot.gray { background: #5c5e66; }
+
+    /* ── Terminal / Output Log ── */
+    .log-panel {
+        height: 94px;
+        background: #111214;
+        border: 1px solid var(--border-hairline);
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+        font-size: 11px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: #8a8e94;
+        flex-shrink: 0;
+    }
+
+    .log-panel::-webkit-scrollbar { width: 5px; }
+    .log-panel::-webkit-scrollbar-thumb { background: #232428; border-radius: 2px; }
+
+    .log-line {
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .log-line.info { color: #8a8e94; }
+    .log-line.success { color: #3dd676; }
+    .log-line.error { color: #ff6b6e; }
+    .log-line.warn { color: #ffd166; }
+
+    /* ── Footer Action Bar ── */
+    .footer {
+        height: 48px;
+        background: #111214;
+        border-top: 1px solid var(--border-hairline);
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+    }
+
+    .footer-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .footer-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn {
+        height: 32px;
+        padding: 0 16px;
+        border-radius: 3px;
+        border: none;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: background 0.1s;
+    }
+
+    .action-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+    .btn-brand {
+        background: var(--brand);
+        color: #ffffff;
+    }
+
+    .btn-brand:hover:not(:disabled) {
+        background: var(--brand-hover);
+    }
+
+    .btn-brand:active:not(:disabled) {
+        background: var(--brand-active);
+    }
+
+    .btn-neutral {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-header);
+    }
+
+    .btn-neutral:hover:not(:disabled) {
+        background: var(--bg-hover);
+    }
+
+    .btn-danger {
+        background: #da373c;
+        color: #ffffff;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+        background: #a1282c;
+    }
+
+    .btn-launch {
+        background: #23a55a;
+        color: #ffffff;
+    }
+
+    .btn-launch:hover:not(:disabled) {
+        background: #1d8247;
+    }
+
+    /* ── Empty state ── */
+    .empty-rows {
+        padding: 30px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+</style>
+</head>
+<body>
+<div class="window">
+    <!-- Header -->
+    <div class="titlebar">
+        <div class="titlebar-brand">
+            <img class="titlebar-icon" id="titleIcon" src="" alt="">
+            <span>Dimcord Patcher</span>
+            <span class="titlebar-tag">v1.15.18</span>
+        </div>
+        <div class="window-controls">
+            <button class="win-btn" onclick="dimcord.minimize()" title="Minimize">
+                <svg width="10" height="1" viewBox="0 0 10 1"><rect fill="currentColor" width="10" height="1"/></svg>
+            </button>
+            <button class="win-btn close" onclick="dimcord.close()" title="Close">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path fill="currentColor" d="M1 0L0 1l4 4-4 4 1 1 4-4 4 4 1-1-4-4 4-4-1-1-4 4-4-4z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mode Toolbar -->
+    <div class="toolbar">
+        <div class="segmented-control">
+            <button class="segment-tab active" id="tabInstall" onclick="setMode('install')">Patch / Install</button>
+            <button class="segment-tab" id="tabUninstall" onclick="setMode('uninstall')">Restore Vanilla</button>
+        </div>
+        <div class="toolbar-actions">
+            <button class="tool-btn" onclick="browseFolder()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A.5.5 0 008.92 3.7H13.5A1.5 1.5 0 0115 5.2v7.3a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z"/></svg>
+                Add Path
+            </button>
+            <button class="tool-btn" onclick="refresh()">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 104.546 2.914.5.5 0 01.908-.418A6 6 0 118 2v1z"/><path d="M8 0a.5.5 0 01.5.5v3a.5.5 0 01-.5.5H5a.5.5 0 010-1h2.5V.5A.5.5 0 018 0z"/></svg>
+                Rescan
+            </button>
+        </div>
+    </div>
+
+    <!-- Body View -->
+    <div class="main-body">
+        <div class="table-container">
+            <div class="table-header">
+                <div>Installation</div>
+                <div>Version</div>
+                <div>Path</div>
+                <div>State</div>
+            </div>
+            <div class="table-body" id="tableBody">
+                <!-- Rows injected here -->
+            </div>
+        </div>
+
+        <!-- Real-time Console Log -->
+        <div class="log-panel" id="logPanel">
+            <div class="log-line info">[System] Initializing Dimcord patch manager...</div>
+        </div>
+    </div>
+
+    <!-- Footer Controls -->
+    <div class="footer">
+        <div class="footer-status" id="footerStatus">
+            <span>Scanning for installations...</span>
+        </div>
+        <div class="footer-actions" id="footerActions">
+            <button class="action-btn btn-brand" id="btnPrimary" onclick="handlePrimaryAction()" disabled>Patch Discord</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const DISCORD_PATH_SVG = `<svg class="channel-icon" viewBox="0 -28.5 256 256"><path d="M216.9 16.6A208.5 208.5 0 00164 0a156 156 0 00-6.9 14.1 193.3 193.3 0 00-58.2 0A155 155 0 0092 0a208.5 208.5 0 00-52.9 16.6A218 218 0 00.5 165.9a211.4 211.4 0 0064.7 32.7 159 159 0 0013.9-22.6 136 136 0 01-21.9-10.5l5.3-4.1a149.3 149.3 0 00128 0l5.3 4.1a136 136 0 01-21.9 10.5 159 159 0 0013.9 22.6 210.9 210.9 0 0064.7-32.7A218 218 0 00216.9 16.6zM85.5 135.8c-12.2 0-22.3-11.3-22.3-25s9.9-25 22.3-25 22.5 11.3 22.3 25-9.9 25-22.3 25zm85 0c-12.2 0-22.3-11.3-22.3-25s9.9-25 22.3-25 22.5 11.3 22.3 25-9.9 25-22.3 25z"/></svg>`;
+
+    let installs = [];
+    let selectedIndex = 0;
+    let mode = "install"; // 'install' | 'uninstall'
+    let isBusy = false;
+
+    // Load custom logo
+    (async () => {
+        try {
+            const logo = await dimcord.getLogo();
+            if (logo) document.getElementById("titleIcon").src = logo;
+        } catch {}
+    })();
+
+    // Listen to real-time events from main process
+    dimcord.onLog(msg => {
+        appendLog(msg);
+    });
+
+    function appendLog(text, level = "info") {
+        const panel = document.getElementById("logPanel");
+        const div = document.createElement("div");
+        div.className = `log-line ${level}`;
+        const time = new Date().toLocaleTimeString([], { hour12: false });
+        div.textContent = `[${time}] ${text}`;
+        panel.appendChild(div);
+        panel.scrollTop = panel.scrollHeight;
+    }
+
+    function setMode(newMode) {
+        mode = newMode;
+        document.getElementById("tabInstall").classList.toggle("active", mode === "install");
+        document.getElementById("tabUninstall").classList.toggle("active", mode === "uninstall");
+        updateFooter();
+    }
+
+    async function refresh() {
+        appendLog("Checking local client installations...");
+        const data = await dimcord.getInstalls();
+
+        const custom = installs.filter(i => i.isCustom);
+        installs = [...data.installs, ...custom];
+
+        renderTable();
+
+        if (data.discordRunning) {
+            appendLog("Notice: Discord process is active. It will be restarted during modification.", "warn");
+        }
+        appendLog(`Found ${installs.length} installation(s). Ready.`);
+    }
+
+    function renderTable() {
+        const body = document.getElementById("tableBody");
+        if (installs.length === 0) {
+            body.innerHTML = `<div class="empty-rows">No Discord installations detected. Click "Add Path" to select a directory manually.</div>`;
+            updateFooter();
+            return;
+        }
+
+        if (selectedIndex >= installs.length) selectedIndex = 0;
+
+        let html = "";
+        installs.forEach((inst, i) => {
+            const isSel = i === selectedIndex ? "selected" : "";
+            const statusDot = inst.installed ? "green" : "gray";
+            const statusLabel = inst.installed ? "Patched" : "Vanilla";
+            const versionStr = inst.version || "-";
+
+            html += `
+                <div class="table-row ${isSel}" onclick="selectRow(${i})">
+                    <div class="col-channel">
+                        ${DISCORD_PATH_SVG}
+                        <span>${inst.name}</span>
+                    </div>
+                    <div class="col-version">${versionStr}</div>
+                    <div class="col-path" title="${inst.path}">${inst.path}</div>
+                    <div class="col-status">
+                        <span class="status-dot ${statusDot}"></span>
+                        <span>${statusLabel}</span>
+                    </div>
+                </div>`;
+        });
+
+        body.innerHTML = html;
+        updateFooter();
+    }
+
+    function selectRow(index) {
+        selectedIndex = index;
+        renderTable();
+    }
+
+    async function browseFolder() {
+        try {
+            const folder = await dimcord.selectCustomDir();
+            if (folder) {
+                installs.push(folder);
+                selectedIndex = installs.length - 1;
+                appendLog(`Registered custom path: ${folder.path}`);
+                renderTable();
+            }
+        } catch (e) {
+            appendLog(e.message, "error");
+        }
+    }
+
+    function updateFooter() {
+        const sel = installs[selectedIndex];
+        const statusEl = document.getElementById("footerStatus");
+        const actionsEl = document.getElementById("footerActions");
+
+        if (!sel) {
+            statusEl.textContent = "No target selected";
+            actionsEl.innerHTML = `<button class="action-btn btn-brand" disabled>Select Target</button>`;
+            return;
+        }
+
+        statusEl.innerHTML = `<span>Target: <strong>${sel.name}</strong> (${sel.installed ? "Patched" : "Vanilla"})</span>`;
+
+        if (mode === "install") {
+            if (sel.installed) {
+                actionsEl.innerHTML = `
+                    <button class="action-btn btn-neutral" onclick="handlePrimaryAction()" ${isBusy ? "disabled" : ""}>Repair Patch</button>
+                    <button class="action-btn btn-launch" onclick="handleLaunch()" ${isBusy ? "disabled" : ""}>Launch Discord</button>
+                `;
+            } else {
+                actionsEl.innerHTML = `
+                    <button class="action-btn btn-brand" onclick="handlePrimaryAction()" ${isBusy ? "disabled" : ""}>Patch Discord</button>
+                `;
+            }
+        } else {
+            actionsEl.innerHTML = `
+                <button class="action-btn btn-danger" onclick="handlePrimaryAction()" ${isBusy || !sel.installed ? "disabled" : ""}>Restore Vanilla Discord</button>
+            `;
+        }
+    }
+
+    async function handlePrimaryAction() {
+        const sel = installs[selectedIndex];
+        if (!sel || isBusy) return;
+
+        isBusy = true;
+        updateFooter();
+
+        if (mode === "install") {
+            appendLog(`Beginning patch operation on ${sel.name}...`);
+            const res = await dimcord.inject(sel.resources, sel.name);
+            if (res.success) {
+                appendLog(`Successfully patched ${sel.name}. Dimcord linked.`, "success");
+            } else {
+                appendLog(`Failed to patch: ${res.error}`, "error");
+            }
+        } else {
+            appendLog(`Beginning restoration on ${sel.name}...`);
+            const res = await dimcord.uninject(sel.resources, sel.name);
+            if (res.success) {
+                appendLog(`Vanilla Discord restored for ${sel.name}.`, "success");
+            } else {
+                appendLog(`Restoration failed: ${res.error}`, "error");
+            }
+        }
+
+        isBusy = false;
+        await refresh();
+    }
+
+    async function handleLaunch() {
+        const sel = installs[selectedIndex];
+        if (!sel) return;
+        appendLog(`Spawning ${sel.name}...`);
+        await dimcord.launchDiscord(sel.path);
+    }
+
+    refresh();
+</script>
+</body>
+</html>
