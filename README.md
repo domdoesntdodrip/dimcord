@@ -4,68 +4,7 @@
 [![Discord](https://img.shields.io/discord/1173279886065029291.svg?color=768AD4&label=Discord&logo=discord&logoColor=white)](https://equicord.org/discord)
 
 Dimcord is a custom client mod for Discord with over 300+ plugins.
-
-You can join our [Discord server](https://equicord.org/discord) for commits, changes, chatting, or even support.
-
-### Included Plugins
-
-Our included plugins can be found [here](https://equicord.org/plugins).
-
-## Installing Dimcord Devbuild
-
-### Dependencies
-
-[Git](https://git-scm.com/download) and [Node.JS LTS](https://nodejs.dev/en/) are required.
-
-Install `pnpm`:
-
-> :exclamation: This next command may need to be run as admin/root depending on your system, and you may need to close and reopen your terminal for pnpm to be in your PATH.
-
-```shell
-npm i -g pnpm
-```
-
-> :exclamation: **IMPORTANT** Make sure you aren't using an admin/root terminal from here onwards. It **will** mess up your Discord/Dimcord instance and you **will** most likely have to reinstall.
-
-Install dependencies:
-
-```shell
-pnpm install --frozen-lockfile
-```
-
-Build Dimcord:
-
-```shell
-pnpm build
-```
-
-### Install with GUI Installer
-
-Simply double-click **`DimcordInstaller.exe`** in the root folder, or run:
-
-```shell
-pnpm gui
-```
-
-### CLI Alternative
-
-Inject Dimcord into your desktop client via command line:
-
-```shell
-pnpm inject
-```
-
-Build Dimcord for web:
-
-```shell
-pnpm buildWeb
-```
-
-After building Dimcord's web extension, locate the appropriate ZIP file in the `dist` directory and follow your browser’s guide for installing custom extensions, if supported.
-
-Note: Firefox extension zip requires Firefox for developers
-
-## Credits
+## Creds to
 
 Thank you to [Vendicated](https://github.com/Vendicated) for creating [Vencord](https://github.com/Vendicated/Vencord), [Equicord](https://github.com/Equicord/Equicord), and [Suncord](https://github.com/verticalsync/Suncord) by [verticalsync](https://github.com/verticalsync) for helping when needed.
 
