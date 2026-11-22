@@ -286,7 +286,7 @@ export default definePlugin({
     start() {
         void Native.enableAutoCapture();
 
-        // Check if currently already in a voice call on plugin startup
+        // Checks if currently already in a voice call on plugin startup
         const currentVoiceId = SelectedChannelStore.getVoiceChannelId();
         if (currentVoiceId && settings.store.autoRecord) {
             void startRecording(currentVoiceId);
