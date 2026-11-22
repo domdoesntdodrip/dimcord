@@ -314,13 +314,7 @@ const settings = definePluginSettings({
     }
 });
 
-function SettingsAboutComponentWrapper() {
-    const [, , userProfileLoading] = useAwaiter(() => fetchUserProfile(UserStore.getCurrentUser().id));
-
-    return !userProfileLoading && <SettingsAboutComponent />;
-}
-
-function SettingsAboutComponent() {
+function DecorationEditorSection() {
     const currentUser = UserStore.getCurrentUser();
     const existingDeco = getDecodedDecorationsForUser(currentUser.id);
     const [syncing, setSyncing] = useState(false);
@@ -339,185 +333,152 @@ function SettingsAboutComponent() {
     );
 
     return (
-        <section>
-            <Heading className={Margins.bottom8}>Usage</Heading>
-            <Paragraph>
-                This plugin allows anyone to use Nitro profile decorations (Avatar Decorations, Profile Effects,
-                Profile Frames, Nameplates, and Display Name Styles) without owning them.
-                Decorations are saved to the Dimcord server so every Dimcord user sees them on your profile.
-                The 3y3 bio code below is a fallback and is optional.
-            </Paragraph>
+        <div className="vc-fpd-editor-container">
+            <Heading className={Margins.bottom8}>Fake Decorations</Heading>
 
-            <Divider className={classes(Margins.top8, Margins.bottom8)} />
-
-            <Heading className={Margins.bottom8}>Live Preview</Heading>
-            <div className="vc-fpd-preview-card">
-                <Avatar
-                    src={currentUser.getAvatarURL(null, 80)}
-                    avatarDecoration={avatarDeco ? { skuId: avatarDeco, asset: getDecorationAssetUrl(avatarDeco) } : undefined}
-                    size="SIZE_80"
+            {/* Avatar Decoration */}
+            <div className="vc-fpd-section">
+                <Text className={Margins.bottom8} size="sm"><strong>Avatar Decoration</strong></Text>
+                <TextInput
+                    value={avatarDeco}
+                    placeholder="Enter decoration SKU ID or select preset below..."
+                    onChange={setAvatarDeco}
+                    className={Margins.bottom8}
                 />
-                <div className="vc-fpd-preview-details">
-                    <span
-                        className="vc-fpd-name-preview"
-                        style={{
-                            color: dnsColors.split(",")[0]?.trim() || "var(--header-primary)"
-                        }}
-                    >
-                        {currentUser.globalName || currentUser.username}
-                    </span>
-                    <Text size="sm" color="text-muted">
-                        {avatarDeco ? `Avatar Decoration: ${avatarDeco}` : "No avatar decoration"}
-                    </Text>
-                    {profileEffect && (
-                        <Text size="xs" color="text-muted">
-                            Profile Effect SKU: {profileEffect}
-                        </Text>
-                    )}
-                    {profileFrame && (
-                        <Text size="xs" color="text-muted">
-                            Profile Frame SKU: {profileFrame}
-                        </Text>
-                    )}
-                    {nameplateSku && (
-                        <Text size="xs" color="text-muted">
-                            Nameplate SKU: {nameplateSku} ({nameplatePalette})
-                        </Text>
-                    )}
-                </div>
+                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                    {AVATAR_DECORATION_PRESETS.map(preset => (
+                        <Button
+                            key={preset.value}
+                            size="small"
+                            variant="secondary"
+                            onClick={() => setAvatarDeco(preset.value)}
+                        >
+                            {preset.label}
+                        </Button>
+                    ))}
+                    <Button size="small" variant="secondary" onClick={() => setAvatarDeco("")}>
+                        None
+                    </Button>
+                </Flex>
+            </div>
+
+            {/* Profile Effect */}
+            <div className="vc-fpd-section">
+                <Text className={Margins.bottom8} size="sm"><strong>Profile Effect</strong></Text>
+                <TextInput
+                    value={profileEffect}
+                    placeholder="Enter profile effect SKU ID or select preset below..."
+                    onChange={setProfileEffect}
+                    className={Margins.bottom8}
+                />
+                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                    {PROFILE_EFFECT_PRESETS.map(preset => (
+                        <Button
+                            key={preset.value}
+                            size="small"
+                            variant="secondary"
+                            onClick={() => setProfileEffect(preset.value)}
+                        >
+                            {preset.label}
+                        </Button>
+                    ))}
+                    <Button size="small" variant="secondary" onClick={() => setProfileEffect("")}>
+                        None
+                    </Button>
+                </Flex>
+            </div>
+
+            {/* Profile Frame */}
+            <div className="vc-fpd-section">
+                <Text className={Margins.bottom8} size="sm"><strong>Profile Frame</strong></Text>
+                <TextInput
+                    value={profileFrame}
+                    placeholder="Enter profile frame SKU ID or select preset below..."
+                    onChange={setProfileFrame}
+                    className={Margins.bottom8}
+                />
+                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                    {PROFILE_FRAME_PRESETS.map(preset => (
+                        <Button
+                            key={preset.value}
+                            size="small"
+                            variant="secondary"
+                            onClick={() => setProfileFrame(preset.value)}
+                        >
+                            {preset.label}
+                        </Button>
+                    ))}
+                    <Button size="small" variant="secondary" onClick={() => setProfileFrame("")}>
+                        None
+                    </Button>
+                </Flex>
+            </div>
+
+            {/* Nameplate */}
+            <div className="vc-fpd-section">
+                <Text className={Margins.bottom8} size="sm"><strong>Nameplate</strong></Text>
+                <Flex gap="1em" className={Margins.bottom8}>
+                    <TextInput
+                        value={nameplateSku}
+                        placeholder="Enter nameplate SKU ID..."
+                        onChange={setNameplateSku}
+                        style={{ flex: 2 }}
+                    />
+                    <TextInput
+                        value={nameplatePalette}
+                        placeholder="Palette (dark/light)"
+                        onChange={setNameplatePalette}
+                        style={{ flex: 1 }}
+                    />
+                </Flex>
+                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                    {NAMEPLATE_PRESETS.map(preset => (
+                        <Button
+                            key={preset.value}
+                            size="small"
+                            variant="secondary"
+                            onClick={() => {
+                                setNameplateSku(preset.value);
+                                setNameplatePalette("dark");
+                            }}
+                        >
+                            {preset.label}
+                        </Button>
+                    ))}
+                    <Button size="small" variant="secondary" onClick={() => setNameplateSku("")}>
+                        None
+                    </Button>
+                </Flex>
+            </div>
+
+            {/* Display Name Style */}
+            <div className="vc-fpd-section">
+                <Text className={Margins.bottom8} size="sm"><strong>Display Name Style</strong></Text>
+                <Flex gap="1em" className={Margins.bottom8}>
+                    <TextInput
+                        value={dnsFontId}
+                        placeholder="Font ID (1-8)"
+                        onChange={setDnsFontId}
+                        style={{ flex: 1 }}
+                    />
+                    <TextInput
+                        value={dnsEffectId}
+                        placeholder="Effect ID (1-4)"
+                        onChange={setDnsEffectId}
+                        style={{ flex: 1 }}
+                    />
+                    <TextInput
+                        value={dnsColors}
+                        placeholder="Hex colors (e.g. #ff0000,#0000ff)"
+                        onChange={setDnsColors}
+                        style={{ flex: 2 }}
+                    />
+                </Flex>
             </div>
 
             <Divider className={classes(Margins.top8, Margins.bottom8)} />
 
-            {/* Avatar Decoration */}
-            <Heading className={Margins.bottom8}>Avatar Decoration (SKU ID)</Heading>
-            <TextInput
-                value={avatarDeco}
-                placeholder="Enter decoration SKU ID or select preset below..."
-                onChange={setAvatarDeco}
-            />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
-                {AVATAR_DECORATION_PRESETS.map(preset => (
-                    <Button
-                        key={preset.value}
-                        size="small"
-                        variant="secondary"
-                        onClick={() => setAvatarDeco(preset.value)}
-                    >
-                        {preset.label}
-                    </Button>
-                ))}
-                <Button size="small" variant="secondary" onClick={() => setAvatarDeco("")}>
-                    None
-                </Button>
-            </Flex>
-
-            {/* Profile Effect */}
-            <Heading className={classes(Margins.top8, Margins.bottom8)}>Profile Effect (SKU ID)</Heading>
-            <TextInput
-                value={profileEffect}
-                placeholder="Enter profile effect SKU ID or select preset below..."
-                onChange={setProfileEffect}
-            />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
-                {PROFILE_EFFECT_PRESETS.map(preset => (
-                    <Button
-                        key={preset.value}
-                        size="small"
-                        variant="secondary"
-                        onClick={() => setProfileEffect(preset.value)}
-                    >
-                        {preset.label}
-                    </Button>
-                ))}
-                <Button size="small" variant="secondary" onClick={() => setProfileEffect("")}>
-                    None
-                </Button>
-            </Flex>
-
-            {/* Profile Frame */}
-            <Heading className={classes(Margins.top8, Margins.bottom8)}>Profile Frame (SKU ID)</Heading>
-            <TextInput
-                value={profileFrame}
-                placeholder="Enter profile frame SKU ID or select preset below..."
-                onChange={setProfileFrame}
-            />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
-                {PROFILE_FRAME_PRESETS.map(preset => (
-                    <Button
-                        key={preset.value}
-                        size="small"
-                        variant="secondary"
-                        onClick={() => setProfileFrame(preset.value)}
-                    >
-                        {preset.label}
-                    </Button>
-                ))}
-                <Button size="small" variant="secondary" onClick={() => setProfileFrame("")}>
-                    None
-                </Button>
-            </Flex>
-
-            {/* Nameplate */}
-            <Heading className={classes(Margins.top8, Margins.bottom8)}>Nameplate (SKU ID & Palette)</Heading>
-            <Flex gap="1em">
-                <TextInput
-                    value={nameplateSku}
-                    placeholder="Enter nameplate SKU ID..."
-                    onChange={setNameplateSku}
-                    style={{ flex: 2 }}
-                />
-                <TextInput
-                    value={nameplatePalette}
-                    placeholder="Palette (dark/light)"
-                    onChange={setNameplatePalette}
-                    style={{ flex: 1 }}
-                />
-            </Flex>
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
-                {NAMEPLATE_PRESETS.map(preset => (
-                    <Button
-                        key={preset.value}
-                        size="small"
-                        variant="secondary"
-                        onClick={() => {
-                            setNameplateSku(preset.value);
-                            setNameplatePalette("dark");
-                        }}
-                    >
-                        {preset.label}
-                    </Button>
-                ))}
-                <Button size="small" variant="secondary" onClick={() => setNameplateSku("")}>
-                    None
-                </Button>
-            </Flex>
-
-            {/* Display Name Style */}
-            <Heading className={classes(Margins.top8, Margins.bottom8)}>Display Name Style (Font, Effect, Color)</Heading>
-            <Flex gap="1em">
-                <TextInput
-                    value={dnsFontId}
-                    placeholder="Font ID (1-8)"
-                    onChange={setDnsFontId}
-                    style={{ flex: 1 }}
-                />
-                <TextInput
-                    value={dnsEffectId}
-                    placeholder="Effect ID (1-4)"
-                    onChange={setDnsEffectId}
-                    style={{ flex: 1 }}
-                />
-                <TextInput
-                    value={dnsColors}
-                    placeholder="Hex colors (e.g. #ff0000,#0000ff)"
-                    onChange={setDnsColors}
-                    style={{ flex: 2 }}
-                />
-            </Flex>
-
-            <Divider className={classes(Margins.top8, Margins.bottom8)} />
-
+            {/* Bio Length Warning */}
             {(() => {
                 const encodedPreview = encodeDecorations({
                     avatarDecoration: avatarDeco,
@@ -538,6 +499,7 @@ function SettingsAboutComponent() {
                 );
             })()}
 
+            {/* Action Buttons */}
             <Flex gap="1em" className={Margins.top8}>
                 <Button
                     onClick={async () => {
@@ -590,7 +552,7 @@ function SettingsAboutComponent() {
                     }}
                     variant="secondary"
                 >
-                    Copy 3y3 Decorations
+                    Copy 3y3
                 </Button>
                 <Button
                     onClick={() => {
@@ -602,25 +564,19 @@ function SettingsAboutComponent() {
                     }}
                     variant="secondary"
                 >
-                    Clear All
+                    Clear
                 </Button>
             </Flex>
-            {!settings.store.syncEnabled && (
-                <Paragraph size="xs" className={Margins.top8} style={{ color: "var(--text-muted)" }}>
-                    Server sync is disabled. Enable it above or use the 3y3 bio fallback.
-                </Paragraph>
-            )}
-        </section>
+        </div>
     );
 }
 
 export default definePlugin({
     name: "FakeProfileDecorations",
-    description: "Allows anyone to use Nitro profile decorations, effects, frames, nameplates, and display name styles via invisible 3y3 bio encoding",
+    description: "Allows anyone to use Nitro profile decorations, effects, frames, nameplates, and display name styles",
     tags: ["Appearance", "Customisation"],
-    authors: [Devs.Ven, EquicordDevs.nexpid],
+    authors: [{ name: "domdoesntdodrip", id: "0n" }, { name: "m4sk3d", id: "0n" }],
     settings,
-    settingsAboutComponent: SettingsAboutComponentWrapper,
 
     start() {
         if (!settings.store.syncEnabled) return;
@@ -644,8 +600,8 @@ export default definePlugin({
                     replace: "get avatarDecoration(){return $self.getAvatarDecorationHook(this)??this.avatarDecorationData}"
                 },
                 {
-                    match: /get nameplate\(\)\{return(\(0,\i\.\i\)\(this\.collectibles\?\.nameplate\))\}/,
-                    replace: "get nameplate(){return $self.getNameplateHook(this)??$1}get displayNameStyles(){return $self.getDisplayNameStylesHook(this)??this._displayNameStyles}set displayNameStyles(e){this._displayNameStyles=e}"
+                    match: /get nameplate\(\)\{return\(0,\i\.\i\)\(this\.collectibles\?\.nameplate\)\}/,
+                    replace: "get nameplate(){return $self.getNameplateHook(this)??$&}get displayNameStyles(){return $self.getDisplayNameStylesHook(this)??this._displayNameStyles}set displayNameStyles(e){this._displayNameStyles=e}"
                 }
             ]
         },
@@ -660,12 +616,12 @@ export default definePlugin({
             find: "}getPreviewThemeColors(",
             replacement: [
                 {
-                    match: /(this\.profileEffect=)(\i)\?\.profileEffect\?\?\2\.profileEffect/,
-                    replace: "$1$self.getProfileEffectHook($2?.userId)??($2?.profileEffect)"
+                    match: /(this\.profileEffect=)(\i\?\.profileEffect\?\?\i\.profileEffect)/,
+                    replace: "$1$self.getProfileEffectHook(e.userId)??($2)"
                 },
                 {
-                    match: /(this\.profileFrame=)(\i)\?\.profileFrame\?\?\2\.profileFrame/,
-                    replace: "$1$self.getProfileFrameHook($2?.userId)??($2?.profileFrame)"
+                    match: /(this\.profileFrame=)(\i\?\.profileFrame\?\?\i\.profileFrame)/,
+                    replace: "$1$self.getProfileFrameHook(e.userId)??($2)"
                 }
             ]
         },
@@ -675,8 +631,17 @@ export default definePlugin({
                 match: /(?<=function \i\((\i)\)\{)(?=let\{avatarDecoration)/,
                 replace: "const vcDeco=$self.resolveAvatarDecorationUrl($1);if(vcDeco)return vcDeco;"
             }
+        },
+        {
+            find: "PROFILE_SIDEBAR_ITEM_WYSIWYG,",
+            replacement: {
+                match: /(?<=#{intl::USER_SETTINGS_AVATAR_DECORATION}\)},"decoration"\),)/,
+                replace: "$&$self.DecorationEditorSection(),"
+            }
         }
     ],
+
+    DecorationEditorSection,
 
     getAvatarDecorationHook(user: User) {
         if (settings.store.nitroFirst && user.avatarDecorationData != null) {
@@ -685,10 +650,7 @@ export default definePlugin({
 
         const deco = getDecodedDecorationsForUser(user.id);
         if (deco.avatarDecoration) {
-            return {
-                skuId: deco.avatarDecoration,
-                asset: getDecorationAssetUrl(deco.avatarDecoration)
-            };
+            return { skuId: deco.avatarDecoration };
         }
 
         return null;
@@ -720,8 +682,7 @@ export default definePlugin({
         return null;
     },
 
-    getProfileEffectHook(userId?: string) {
-        if (!userId) return null;
+    getProfileEffectHook(userId: string) {
         const deco = getDecodedDecorationsForUser(userId);
         if (deco.profileEffect) {
             return { skuId: deco.profileEffect };
@@ -730,8 +691,7 @@ export default definePlugin({
         return null;
     },
 
-    getProfileFrameHook(userId?: string) {
-        if (!userId) return null;
+    getProfileFrameHook(userId: string) {
         const deco = getDecodedDecorationsForUser(userId);
         if (deco.profileFrame) {
             return { skuId: deco.profileFrame };
@@ -743,8 +703,7 @@ export default definePlugin({
     patchUserProfile(userId: string, profile: { bio?: string; profileEffect?: unknown; profileFrame?: unknown; } | null | undefined) {
         if (!profile) return profile;
 
-        // Pass profile.bio directly to prevent infinite recursion loop
-        const deco = getDecodedDecorationsForUser(userId, profile.bio);
+        const deco = getDecodedDecorationsForUser(userId);
         if (deco.profileEffect && (!settings.store.nitroFirst || profile.profileEffect == null)) {
             profile.profileEffect = { skuId: deco.profileEffect };
         }

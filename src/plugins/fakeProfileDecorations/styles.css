@@ -4,8 +4,19 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+.vc-fpd-editor-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 0;
+    border-top: 1px solid var(--background-modifier-accent);
+    border-bottom: 1px solid var(--background-modifier-accent);
+}
+
 .vc-fpd-section {
-    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .vc-fpd-preview-card {
