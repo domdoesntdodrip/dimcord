@@ -146,12 +146,16 @@ function encodeDecorations(deco: {
 }
 
 function getUserBio(userId: string): string {
-    const profile = UserProfileStore.getUserProfile(userId);
-    return profile?.bio ?? "";
+    try {
+        const profile = UserProfileStore.getUserProfile(userId);
+        return profile?.bio ?? "";
+    } catch {
+        return "";
+    }
 }
 
-function getDecodedDecorationsForUser(userId: string): DecodedDecorations {
-    const bio = getUserBio(userId);
+function getDecodedDecorationsForUser(userId: string, bioOverride?: string): DecodedDecorations {
+    const bio = bioOverride ?? getUserBio(userId);
     const cached = userDecoCache.get(userId);
     if (cached && cached.bio === bio) {
         return cached.decorations;
@@ -238,7 +242,6 @@ function SettingsAboutComponent() {
                 <Avatar
                     src={currentUser.getAvatarURL(null, 80)}
                     size="SIZE_80"
-                    avatarDecoration={avatarDeco ? { skuId: avatarDeco } : undefined}
                 />
                 <div className="vc-fpd-preview-details">
                     <span
@@ -279,7 +282,7 @@ function SettingsAboutComponent() {
                 placeholder="Enter decoration SKU ID or select preset below..."
                 onChange={setAvatarDeco}
             />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} wrap="wrap">
+            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
                 {AVATAR_DECORATION_PRESETS.map(preset => (
                     <Button
                         key={preset.value}
@@ -302,7 +305,7 @@ function SettingsAboutComponent() {
                 placeholder="Enter profile effect SKU ID or select preset below..."
                 onChange={setProfileEffect}
             />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} wrap="wrap">
+            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
                 {PROFILE_EFFECT_PRESETS.map(preset => (
                     <Button
                         key={preset.value}
@@ -325,7 +328,7 @@ function SettingsAboutComponent() {
                 placeholder="Enter profile frame SKU ID or select preset below..."
                 onChange={setProfileFrame}
             />
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} wrap="wrap">
+            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
                 {PROFILE_FRAME_PRESETS.map(preset => (
                     <Button
                         key={preset.value}
@@ -357,7 +360,7 @@ function SettingsAboutComponent() {
                     style={{ flex: 1 }}
                 />
             </Flex>
-            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} wrap="wrap">
+            <Flex gap="0.5em" className={classes(Margins.top8, Margins.bottom8)} style={{ flexWrap: "wrap" }}>
                 {NAMEPLATE_PRESETS.map(preset => (
                     <Button
                         key={preset.value}
@@ -441,7 +444,7 @@ export default definePlugin({
     name: "FakeProfileDecorations",
     description: "Allows anyone to use Nitro profile decorations, effects, frames, nameplates, and display name styles via invisible 3y3 bio encoding",
     tags: ["Appearance", "Customisation"],
-    authors: [Devs.Vendicated, EquicordDevs.nexpid],
+    authors: [Devs.Ven, EquicordDevs.nexpid],
     settings,
     settingsAboutComponent: SettingsAboutComponentWrapper,
 
@@ -454,8 +457,8 @@ export default definePlugin({
                     replace: "get avatarDecoration(){return $self.getAvatarDecorationHook(this)??this.avatarDecorationData}"
                 },
                 {
-                    match: /get nameplate\(\)\{return\(0,\i\.\i\)\(this\.collectibles\?\.nameplate\)\}/,
-                    replace: "get nameplate(){return $self.getNameplateHook(this)??$&}get displayNameStyles(){return $self.getDisplayNameStylesHook(this)??this._displayNameStyles}set displayNameStyles(e){this._displayNameStyles=e}"
+                    match: /get nameplate\(\)\{return(\(0,\i\.\i\)\(this\.collectibles\?\.nameplate\))\}/,
+                    replace: "get nameplate(){return $self.getNameplateHook(this)??$1}get displayNameStyles(){return $self.getDisplayNameStylesHook(this)??this._displayNameStyles}set displayNameStyles(e){this._displayNameStyles=e}"
                 }
             ]
         },
@@ -470,12 +473,12 @@ export default definePlugin({
             find: "}getPreviewThemeColors(",
             replacement: [
                 {
-                    match: /(this\.profileEffect=)(\i\?\.profileEffect\?\?\i\.profileEffect)/,
-                    replace: "$1$self.getProfileEffectHook(e.userId)??($2)"
+                    match: /(this\.profileEffect=)(\i)\?\.profileEffect\?\?\2\.profileEffect/,
+                    replace: "$1$self.getProfileEffectHook($2?.userId)??($2?.profileEffect)"
                 },
                 {
-                    match: /(this\.profileFrame=)(\i\?\.profileFrame\?\?\i\.profileFrame)/,
-                    replace: "$1$self.getProfileFrameHook(e.userId)??($2)"
+                    match: /(this\.profileFrame=)(\i)\?\.profileFrame\?\?\2\.profileFrame/,
+                    replace: "$1$self.getProfileFrameHook($2?.userId)??($2?.profileFrame)"
                 }
             ]
         },
@@ -527,7 +530,8 @@ export default definePlugin({
         return null;
     },
 
-    getProfileEffectHook(userId: string) {
+    getProfileEffectHook(userId?: string) {
+        if (!userId) return null;
         const deco = getDecodedDecorationsForUser(userId);
         if (deco.profileEffect) {
             return { skuId: deco.profileEffect };
@@ -536,7 +540,8 @@ export default definePlugin({
         return null;
     },
 
-    getProfileFrameHook(userId: string) {
+    getProfileFrameHook(userId?: string) {
+        if (!userId) return null;
         const deco = getDecodedDecorationsForUser(userId);
         if (deco.profileFrame) {
             return { skuId: deco.profileFrame };
@@ -548,7 +553,8 @@ export default definePlugin({
     patchUserProfile(userId: string, profile: { bio?: string; profileEffect?: unknown; profileFrame?: unknown; } | null | undefined) {
         if (!profile) return profile;
 
-        const deco = getDecodedDecorationsForUser(userId);
+        // Pass profile.bio directly to prevent infinite recursion loop
+        const deco = getDecodedDecorationsForUser(userId, profile.bio);
         if (deco.profileEffect && (!settings.store.nitroFirst || profile.profileEffect == null)) {
             profile.profileEffect = { skuId: deco.profileEffect };
         }

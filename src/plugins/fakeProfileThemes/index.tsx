@@ -113,7 +113,7 @@ const settings = definePluginSettings({
 interface ProfileModalProps {
     user: User;
     pendingThemeColors: [number, number];
-    pendingBanner?: { imageUri: string; };
+    pendingBanner?: string;
     onAvatarChange: () => void;
     onBannerChange: () => void;
     canUsePremiumCustomization: boolean;
@@ -214,7 +214,7 @@ function SettingsAboutComponent() {
                     <ProfileModal
                         user={UserStore.getCurrentUser()}
                         pendingThemeColors={[color1, color2]}
-                        pendingBanner={bannerUrl ? { imageUri: bannerUrl } : undefined}
+                        pendingBanner={bannerUrl || undefined}
                         onAvatarChange={() => { }}
                         onBannerChange={() => { }}
                         canUsePremiumCustomization={true}
@@ -246,10 +246,6 @@ export default definePlugin({
                 {
                     match: /canEditThemes\(\){/,
                     replace: "$&return true;"
-                },
-                {
-                    match: /getBannerURL\((\i)\)\{/,
-                    replace: "$&const vcBanner=$self.bannerDecodeHook(this);if(vcBanner)return vcBanner;"
                 }
             ],
         },
@@ -257,26 +253,39 @@ export default definePlugin({
             find: ':"SHOULD_LOAD");',
             replacement: {
                 match: /\i(?:\?)?.getPreviewBanner\(\i,\i,\i\)(?=.{0,100}"COMPLETE")/,
-                replace: "$self.bannerDecodeHook(arguments[0]?.displayProfile)||$&"
+                replace: "$self.bannerDecodeHook(arguments[0])||$&"
             }
         }
     ],
+
+    getBioForProfile(profile: any): string | null {
+        if (profile?.bio != null) return profile.bio;
+        const userId = profile?.userId ?? profile?.id ?? profile?.user?.id;
+        if (!userId) return null;
+        try {
+            return UserProfileStore.getUserProfile(userId)?.bio ?? null;
+        } catch {
+            return null;
+        }
+    },
 
     colorDecodeHook(profile: any) {
         if (settings.store.nitroFirst && profile?.themeColors != null) {
             return profile?.themeColors;
         }
 
-        if (profile?.bio != null) {
-            const cached = decodedProfileCache.get(profile.userId);
-            if (cached != null && cached.decodedBio === profile.bio) {
+        const bio = this.getBioForProfile(profile);
+        const userId = profile?.userId ?? profile?.id;
+        if (bio != null && userId != null) {
+            const cached = decodedProfileCache.get(userId);
+            if (cached != null && cached.decodedBio === bio) {
                 return cached.themeColors ?? profile?.themeColors;
             }
 
-            const decodedColors = decodeColors(profile.bio);
-            const decodedBanner = decodeBanner(profile.bio);
-            decodedProfileCache.set(profile.userId, {
-                decodedBio: profile.bio,
+            const decodedColors = decodeColors(bio);
+            const decodedBanner = decodeBanner(bio);
+            decodedProfileCache.set(userId, {
+                decodedBio: bio,
                 themeColors: decodedColors,
                 bannerUrl: decodedBanner
             });
@@ -289,30 +298,31 @@ export default definePlugin({
         return profile?.themeColors;
     },
 
-    bannerDecodeHook(profile: any) {
-        if (settings.store.nitroFirst && profile?.banner != null) {
+    bannerDecodeHook(arg: any) {
+        const displayProfile = arg?.displayProfile ?? arg;
+        if (settings.store.nitroFirst && displayProfile?.banner != null) {
             return null;
         }
 
-        if (profile?.bio != null) {
-            const cached = decodedProfileCache.get(profile.userId);
-            if (cached != null && cached.decodedBio === profile.bio) {
-                return cached.bannerUrl;
-            }
+        const userId = displayProfile?.userId ?? displayProfile?.id ?? arg?.user?.id;
+        if (!userId) return null;
 
-            const decodedColors = decodeColors(profile.bio);
-            const decodedBanner = decodeBanner(profile.bio);
-            decodedProfileCache.set(profile.userId, {
-                decodedBio: profile.bio,
-                themeColors: decodedColors,
-                bannerUrl: decodedBanner
-            });
+        const bio = this.getBioForProfile(displayProfile) ?? this.getBioForProfile(arg);
+        if (!bio) return null;
 
-            if (decodedBanner != null) {
-                return decodedBanner;
-            }
+        const cached = decodedProfileCache.get(userId);
+        if (cached != null && cached.decodedBio === bio) {
+            return cached.bannerUrl;
         }
 
-        return null;
+        const decodedColors = decodeColors(bio);
+        const decodedBanner = decodeBanner(bio);
+        decodedProfileCache.set(userId, {
+            decodedBio: bio,
+            themeColors: decodedColors,
+            bannerUrl: decodedBanner
+        });
+
+        return decodedBanner;
     }
 });
