@@ -257,32 +257,55 @@ function getDecodedDecorationsForUser(userId: string, bioOverride?: string): Dec
     return remote ? { ...bioDecorations, ...remote } : bioDecorations;
 }
 
+// Free Discord Collectibles
 const AVATAR_DECORATION_PRESETS = [
+    // Spooky Collection
     { label: "Spooky Cat Ears", value: "1287835633485877369" },
     { label: "Spooky Cat (Midnight)", value: "1287835633515102228" },
+    // Street Fighter Collection
     { label: "Ryu", value: "1285465421029576704" },
     { label: "Akuma", value: "1285465421096685639" },
+    // Autumn Collection
     { label: "Chrysanthemums", value: "1282816431850782730" },
     { label: "Autumn Equinox", value: "1282816431871754281" },
+    // Free Basics
+    { label: "Purple Crown", value: "1127166325405790349" },
+    { label: "Gold Crown", value: "1127166325416529039" },
 ];
 
 const PROFILE_EFFECT_PRESETS = [
+    // Street Fighter Collection
     { label: "Ryu Hadoken", value: "1285465421306400858" },
     { label: "Akuma Flame", value: "1285465421260263464" },
+    // Autumn Collection
     { label: "Twilight Leaves", value: "1282816431985004594" },
     { label: "Autumn Fall", value: "1282816432001777794" },
+    // Free Basics
+    { label: "Sparkles", value: "1095156053394907219" },
+    { label: "Confetti", value: "1095156053414428672" },
+    { label: "Hearts", value: "1095156053418599445" },
 ];
 
 const PROFILE_FRAME_PRESETS = [
+    // Street Fighter Collection
+    { label: "Street Fighter", value: "1285465421339693076" },
+    // Autumn Collection
     { label: "Neon Frame", value: "1282816432056569866" },
     { label: "Sakura Bloom", value: "1287835634089594972" },
-    { label: "Street Fighter", value: "1285465421339693076" },
+    // Free Basics
+    { label: "Halo", value: "1095156053414137856" },
+    { label: "Crystals", value: "1095156053418599445" },
 ];
 
 const NAMEPLATE_PRESETS = [
+    // Street Fighter Collection
     { label: "Street Fighter", value: "1285465421339693076" },
+    // Autumn Collection
     { label: "Autumn Equinox", value: "1282816432056569866" },
     { label: "Midnight Spooky", value: "1287835634089594972" },
+    // Free Basics
+    { label: "Gold", value: "1095156053414137856" },
+    { label: "Silver", value: "1095156053418599445" },
 ];
 
 const settings = definePluginSettings({
@@ -336,13 +359,13 @@ function FakeDecorationModal({ onClose }: { onClose: () => void }) {
         <ModalRoot>
             <ModalHeader>
                 <Heading level={1} variant="heading-lg/semibold">
-                    Fake Profile Decorations
+                    Free Profile Decorations
                 </Heading>
                 <ModalCloseButton onClick={onClose} />
             </ModalHeader>
             <ModalContent className="vc-fpd-modal-content">
                 <Paragraph className={Margins.bottom16}>
-                    Choose decorations to apply to your profile. These will be saved and visible to other Dimcord users.
+                    Choose from free Discord collectibles to customize your profile. These will be saved and visible to other Dimcord users.
                 </Paragraph>
 
                 {/* Avatar Decoration */}
@@ -538,7 +561,7 @@ function FakeDecorationModal({ onClose }: { onClose: () => void }) {
                             setSyncing(true);
                             try {
                                 await saveRemoteDecorations(deco);
-                                showToast({ text: "Saved your decorations. Other Dimcord users will see them.", variant: "success" });
+                                showToast({ text: "✓ Decorations saved! Other Dimcord users will see them.", variant: "success" });
                             } catch (e) {
                                 console.error("Failed to save Dimcord decorations", e);
                                 showToast({ text: "Could not save decorations. Check the sync server URL.", variant: "critical" });
@@ -563,7 +586,7 @@ function FakeDecorationModal({ onClose }: { onClose: () => void }) {
                                 dnsEffectId,
                                 dnsColors
                             });
-                            copyWithToast(encodedString, "Copied 3y3 decorations to clipboard! Paste it into your bio.");
+                            copyWithToast(encodedString, "✓ Copied 3y3 code! Paste it into your bio.");
                         }}
                         variant="secondary"
                     >
@@ -577,7 +600,7 @@ function FakeDecorationModal({ onClose }: { onClose: () => void }) {
 
 export default definePlugin({
     name: "FakeProfileDecorations",
-    description: "Allows anyone to use Nitro profile decorations, effects, frames, nameplates, and display name styles",
+    description: "Use free Discord collectible profile decorations and effects",
     tags: ["Appearance", "Customisation"],
     authors: [{ name: "domdoesntdodrip", id: "0n" }, { name: "m4sk3d", id: "0n" }],
     settings,
