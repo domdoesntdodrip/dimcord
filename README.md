@@ -2,7 +2,7 @@
 
 https://domdoesntdodrip.github.io/dimcord/
 
-Dimcord is a custom client mod for Discord.
+Dimcord is a fork of Equicord, a custom client mod for Discord.
 
 ## Disclaimer
 
