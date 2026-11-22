@@ -45,6 +45,7 @@
         "testTsc": "tsc --noEmit"
     },
     "dependencies": {
+        "@breezystack/lamejs": "^1.2.7",
         "@ffmpeg/ffmpeg": "catalog:",
         "@ffmpeg/util": "catalog:",
         "@intrnl/xxhash64": "catalog:",
