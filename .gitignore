@@ -1,5 +1,7 @@
-dist
-browser/dist
+dist/*
+!dist/desktop.zip
+browser/dist/*
+!dist/desktop.zip
 browser/vendor
 browser/_metadata
 browser/*.zip

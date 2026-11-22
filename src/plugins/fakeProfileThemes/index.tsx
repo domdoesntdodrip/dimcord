@@ -206,6 +206,14 @@ function SettingsAboutComponent() {
                     placeholder="https://i.imgur.com/... or direct image URL"
                     onChange={setBannerUrl}
                 />
+                {(() => {
+                    const cost = encode(color1, color2, bannerUrl).length;
+                    return (
+                        <Paragraph size="xs" className={Margins.top8} style={{ color: cost > 200 ? "var(--text-danger)" : "var(--text-muted)" }}>
+                            Bio length required: {cost} / 300 characters {cost > 200 ? "⚠ (May exceed Discord limit if your bio has text)" : "✔ (Safe to paste)"}
+                        </Paragraph>
+                    );
+                })()}
                 <Divider
                     className={classes(Margins.top8, Margins.bottom8)}
                 />

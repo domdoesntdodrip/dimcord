@@ -290,11 +290,11 @@ async function installFromRepo(destDir) {
 
     if (!downloadUrl) {
         const directUrls = [
+            `https://raw.githubusercontent.com/${repo}/master/dist/desktop.zip`,
             `https://github.com/${repo}/releases/latest/download/desktop.zip`,
             `https://github.com/${repo}/releases/latest/download/payload.zip`,
             `https://github.com/${repo}/releases/download/prereleasev1/desktop.zip`,
-            `https://github.com/${repo}/releases/download/prereleasev1/payload.zip`,
-            `https://raw.githubusercontent.com/${repo}/master/dist/desktop.zip`
+            `https://github.com/${repo}/releases/download/prereleasev1/payload.zip`
         ];
         for (const testUrl of directUrls) {
             try {

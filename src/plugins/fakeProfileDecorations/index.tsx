@@ -49,11 +49,37 @@ function get3y3Ascii(text: string | null | undefined): string {
     return ascii;
 }
 
-const DECORATION_REGEX = /\/a(\d+)/;
-const PROFILE_EFFECT_REGEX = /fx(\d+)/;
-const PROFILE_FRAME_REGEX = /pf(\d+)/;
-const NAMEPLATE_REGEX = /n\{(\d+)(?:,([^}]+))?\}/;
+const DECORATION_REGEX = /\/a([a-zA-Z0-9]+)/;
+const PROFILE_EFFECT_REGEX = /fx([a-zA-Z0-9]+)/;
+const PROFILE_FRAME_REGEX = /pf([a-zA-Z0-9]+)/;
+const NAMEPLATE_REGEX = /n\{([a-zA-Z0-9]+)(?:,([^}]+))?\}/;
 const DISPLAY_NAME_STYLE_REGEX = /S\{([^}]+)\}/;
+
+function toBase36(id: string): string {
+    const trimmed = id.trim();
+    if (!/^\d+$/.test(trimmed)) return trimmed;
+    try {
+        return BigInt(trimmed).toString(36);
+    } catch {
+        return trimmed;
+    }
+}
+
+function fromBase36(str: string): string {
+    const trimmed = str.trim();
+    if (/^\d{16,}$/.test(trimmed)) return trimmed;
+    try {
+        let res = 0n;
+        for (const c of trimmed.toLowerCase()) {
+            const v = BigInt("0123456789abcdefghijklmnopqrstuvwxyz".indexOf(c));
+            if (v < 0n) return trimmed;
+            res = res * 36n + v;
+        }
+        return res.toString();
+    } catch {
+        return trimmed;
+    }
+}
 
 function decodeDecorations(bio: string | null | undefined): DecodedDecorations {
     const ascii = get3y3Ascii(bio);
@@ -63,23 +89,23 @@ function decodeDecorations(bio: string | null | undefined): DecodedDecorations {
 
     const decoMatch = ascii.match(DECORATION_REGEX);
     if (decoMatch) {
-        res.avatarDecoration = decoMatch[1];
+        res.avatarDecoration = fromBase36(decoMatch[1]);
     }
 
     const fxMatch = ascii.match(PROFILE_EFFECT_REGEX);
     if (fxMatch) {
-        res.profileEffect = fxMatch[1];
+        res.profileEffect = fromBase36(fxMatch[1]);
     }
 
     const pfMatch = ascii.match(PROFILE_FRAME_REGEX);
     if (pfMatch) {
-        res.profileFrame = pfMatch[1];
+        res.profileFrame = fromBase36(pfMatch[1]);
     }
 
     const npMatch = ascii.match(NAMEPLATE_REGEX);
     if (npMatch) {
         res.nameplate = {
-            skuId: npMatch[1],
+            skuId: fromBase36(npMatch[1]),
             palette: npMatch[2] ?? "dark"
         };
     }
@@ -114,17 +140,17 @@ function encodeDecorations(deco: {
     const parts: string[] = [];
 
     if (deco.avatarDecoration?.trim()) {
-        parts.push(`/a${deco.avatarDecoration.trim()}`);
+        parts.push(`/a${toBase36(deco.avatarDecoration)}`);
     }
     if (deco.profileEffect?.trim()) {
-        parts.push(`fx${deco.profileEffect.trim()}`);
+        parts.push(`fx${toBase36(deco.profileEffect)}`);
     }
     if (deco.profileFrame?.trim()) {
-        parts.push(`pf${deco.profileFrame.trim()}`);
+        parts.push(`pf${toBase36(deco.profileFrame)}`);
     }
     if (deco.nameplateSku?.trim()) {
         const pal = deco.nameplatePalette?.trim() || "dark";
-        parts.push(`n{${deco.nameplateSku.trim()},${pal}}`);
+        parts.push(`n{${toBase36(deco.nameplateSku)},${pal}}`);
     }
     if (deco.dnsFontId?.trim() && deco.dnsColors?.trim()) {
         const font = deco.dnsFontId.trim();
@@ -403,6 +429,26 @@ function SettingsAboutComponent() {
             </Flex>
 
             <Divider className={classes(Margins.top8, Margins.bottom8)} />
+
+            {(() => {
+                const encodedPreview = encodeDecorations({
+                    avatarDecoration: avatarDeco,
+                    profileEffect,
+                    profileFrame,
+                    nameplateSku,
+                    nameplatePalette,
+                    dnsFontId,
+                    dnsEffectId,
+                    dnsColors
+                });
+                const cost = encodedPreview.length;
+                if (!cost) return null;
+                return (
+                    <Paragraph size="xs" className={Margins.bottom8} style={{ color: cost > 200 ? "var(--text-danger)" : "var(--text-muted)" }}>
+                        Bio length required: {cost} / 300 characters {cost > 200 ? "⚠ (May exceed Discord limit if your bio has text)" : "✔ (Safe to paste)"}
+                    </Paragraph>
+                );
+            })()}
 
             <Flex gap="1em" className={Margins.top8}>
                 <Button

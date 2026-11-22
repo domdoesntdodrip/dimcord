@@ -577,6 +577,29 @@ namespace Dimcord.Installer
         {
             try
             {
+                // Check if running from local dimcord repository with a freshly built dist/desktop
+                string localDist = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dist", "desktop");
+                if (!Directory.Exists(localDist))
+                {
+                    localDist = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "dist", "desktop");
+                }
+
+                if (File.Exists(System.IO.Path.Combine(localDist, "patcher.js")))
+                {
+                    Log("Installing directly from local repository build (" + localDist + ")...");
+                    foreach (string file in Directory.GetFiles(localDist, "*.*", SearchOption.AllDirectories))
+                    {
+                        if (file.EndsWith(".map", StringComparison.OrdinalIgnoreCase)) continue;
+                        string rel = file.Substring(localDist.Length).TrimStart('\\', '/');
+                        string dest = System.IO.Path.Combine(permanentDir, rel);
+                        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dest));
+                        SafeDeleteFile(dest);
+                        File.Copy(file, dest, true);
+                    }
+                    Log("Successfully installed latest Dimcord from local repository build!");
+                    return true;
+                }
+
                 ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
 
                 string repo = "domdoesntdodrip/dimcord";
@@ -585,33 +608,57 @@ namespace Dimcord.Installer
 
                 Log("Checking repo for latest Dimcord release (" + repo + ")...");
 
+                // 1. Direct raw repository download (always available on master)
+                string rawUrl = "https://raw.githubusercontent.com/" + repo + "/master/dist/desktop.zip";
                 try
                 {
-                    using (WebClient client = new WebClient())
+                    HttpWebRequest rawReq = (HttpWebRequest)WebRequest.Create(rawUrl);
+                    rawReq.UserAgent = "DimcordInstaller";
+                    rawReq.Method = "HEAD";
+                    rawReq.Timeout = 4000;
+                    using (HttpWebResponse rawResp = (HttpWebResponse)rawReq.GetResponse())
                     {
-                        client.Headers.Add("User-Agent", "DimcordInstaller");
-                        client.Headers.Add("Accept", "application/vnd.github.v3+json");
-                        string json = client.DownloadString("https://api.github.com/repos/" + repo + "/releases");
-
-                        string[] targetNames = new string[] { "desktop.zip", "payload.zip", "dimcord-desktop.zip", "dimcord.zip" };
-                        foreach (string target in targetNames)
+                        if (rawResp.StatusCode == HttpStatusCode.OK)
                         {
-                            string pattern = "\"name\"\\s*:\\s*\"" + Regex.Escape(target) + "\"[\\s\\S]*?\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+)\"";
-                            Match m = Regex.Match(json, pattern, RegexOptions.IgnoreCase);
-                            if (m.Success)
-                            {
-                                downloadUrl = m.Groups[1].Value;
-                                sourceLabel = target + " (via GitHub Releases)";
-                                break;
-                            }
+                            downloadUrl = rawUrl;
+                            sourceLabel = "GitHub repository (master branch)";
                         }
                     }
                 }
-                catch (Exception apiEx)
+                catch { }
+
+                // 2. Check GitHub Releases API for release assets
+                if (string.IsNullOrEmpty(downloadUrl))
                 {
-                    Log("Releases API check note: " + apiEx.Message);
+                    try
+                    {
+                        using (WebClient client = new WebClient())
+                        {
+                            client.Headers.Add("User-Agent", "DimcordInstaller");
+                            client.Headers.Add("Accept", "application/vnd.github.v3+json");
+                            string json = client.DownloadString("https://api.github.com/repos/" + repo + "/releases");
+
+                            string[] targetNames = new string[] { "desktop.zip", "payload.zip", "dimcord-desktop.zip", "dimcord.zip" };
+                            foreach (string target in targetNames)
+                            {
+                                string pattern = "\"name\"\\s*:\\s*\"" + Regex.Escape(target) + "\"[\\s\\S]*?\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+)\"";
+                                Match m = Regex.Match(json, pattern, RegexOptions.IgnoreCase);
+                                if (m.Success)
+                                {
+                                    downloadUrl = m.Groups[1].Value;
+                                    sourceLabel = target + " (via GitHub Releases)";
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception apiEx)
+                    {
+                        Log("Releases API check note: " + apiEx.Message);
+                    }
                 }
 
+                // 3. Fallback direct URLs
                 if (string.IsNullOrEmpty(downloadUrl))
                 {
                     string[] directUrls = new string[]
@@ -619,8 +666,7 @@ namespace Dimcord.Installer
                         "https://github.com/" + repo + "/releases/latest/download/desktop.zip",
                         "https://github.com/" + repo + "/releases/latest/download/payload.zip",
                         "https://github.com/" + repo + "/releases/download/prereleasev1/desktop.zip",
-                        "https://github.com/" + repo + "/releases/download/prereleasev1/payload.zip",
-                        "https://raw.githubusercontent.com/" + repo + "/master/dist/desktop.zip"
+                        "https://github.com/" + repo + "/releases/download/prereleasev1/payload.zip"
                     };
 
                     foreach (string testUrl in directUrls)

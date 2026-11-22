@@ -18,7 +18,9 @@
 
 import { fetchBuffer, fetchJson } from "@main/utils/http";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
-import { writeFileSync } from "original-fs";
+import { unzipSync } from "fflate";
+import { mkdirSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
 
 import gitHash from "~git-hash";
 import gitRemote from "~git-remote";
@@ -97,12 +99,21 @@ async function fetchUpdate() {
 }
 
 async function applyUpdate() {
-    if (!PendingUpdate) return true;
-
     try {
-        const data = await fetchBuffer(PendingUpdate);
+        const updateUrl = PendingUpdate || `https://raw.githubusercontent.com/${gitRemote}/master/dist/desktop.zip`;
+        const data = await fetchBuffer(updateUrl);
+
         if (__dirname.endsWith(".asar")) {
             writeFileSync(__dirname, data, { flush: true });
+        } else {
+            // Unpack update directly into permanent directory (e.g. AppData/Dimcord/dist/desktop)
+            const files = unzipSync(new Uint8Array(data));
+            for (const [filename, content] of Object.entries(files)) {
+                if (!content || content.length === 0) continue;
+                const destPath = join(__dirname, filename);
+                mkdirSync(dirname(destPath), { recursive: true });
+                writeFileSync(destPath, Buffer.from(content));
+            }
         }
         PendingUpdate = null;
         return true;
