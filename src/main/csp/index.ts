@@ -121,9 +121,6 @@ export const CspPolicies: PolicyMap = {
     "file.coffee": ImageSrc,
     "backend.aliucord.com": ImageSrc,
     "sysspa.alyxia.dev": ImageSrc,
-
-    "dimcord-api.domcurto13.workers.dev": ConnectSrc, // Dimcord decoration sync API
-    "pub-4f98108a7f824e849555429f6ab6d67e.r2.dev": ImageSrc, // Dimcord decoration assets
 };
 
 const findHeader = (headers: PolicyMap, headerName: Lowercase<string>) => {
