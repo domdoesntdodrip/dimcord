@@ -20,7 +20,7 @@ import { classes } from "@utils/misc";
 import { useAwaiter } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
 import { User } from "@vencord/discord-types";
-import { Avatar, React, showToast, TextInput, UserProfileStore, UserStore, useState } from "@webpack/common";
+import { Avatar, React, showToast, TextInput, UserProfileStore, UserStore, useState, openModal, ModalRoot, ModalHeader, ModalContent, ModalCloseButton } from "@webpack/common";
 
 const DEFAULT_SYNC_SERVER = "https://dimcord-api.domcurto13.workers.dev/";
 const REMOTE_REFRESH_INTERVAL = 60_000;
@@ -314,7 +314,7 @@ const settings = definePluginSettings({
     }
 });
 
-function DecorationEditorSection() {
+function FakeDecorationModal({ onClose }: { onClose: () => void }) {
     const currentUser = UserStore.getCurrentUser();
     const existingDeco = getDecodedDecorationsForUser(currentUser.id);
     const [syncing, setSyncing] = useState(false);
@@ -333,241 +333,245 @@ function DecorationEditorSection() {
     );
 
     return (
-        <div className="vc-fpd-editor-container">
-            <Heading className={Margins.bottom8}>Fake Decorations</Heading>
+        <ModalRoot>
+            <ModalHeader>
+                <Heading level={1} variant="heading-lg/semibold">
+                    Fake Profile Decorations
+                </Heading>
+                <ModalCloseButton onClick={onClose} />
+            </ModalHeader>
+            <ModalContent className="vc-fpd-modal-content">
+                <Paragraph className={Margins.bottom16}>
+                    Choose decorations to apply to your profile. These will be saved and visible to other Dimcord users.
+                </Paragraph>
 
-            {/* Avatar Decoration */}
-            <div className="vc-fpd-section">
-                <Text className={Margins.bottom8} size="sm"><strong>Avatar Decoration</strong></Text>
-                <TextInput
-                    value={avatarDeco}
-                    placeholder="Enter decoration SKU ID or select preset below..."
-                    onChange={setAvatarDeco}
-                    className={Margins.bottom8}
-                />
-                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
-                    {AVATAR_DECORATION_PRESETS.map(preset => (
-                        <Button
-                            key={preset.value}
-                            size="small"
-                            variant="secondary"
-                            onClick={() => setAvatarDeco(preset.value)}
-                        >
-                            {preset.label}
+                {/* Avatar Decoration */}
+                <div className="vc-fpd-section">
+                    <Text className={Margins.bottom8} size="sm"><strong>Avatar Decoration</strong></Text>
+                    <TextInput
+                        value={avatarDeco}
+                        placeholder="Enter decoration SKU ID or select preset below..."
+                        onChange={setAvatarDeco}
+                        className={Margins.bottom8}
+                    />
+                    <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                        {AVATAR_DECORATION_PRESETS.map(preset => (
+                            <Button
+                                key={preset.value}
+                                size="small"
+                                variant="secondary"
+                                onClick={() => setAvatarDeco(preset.value)}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                        <Button size="small" variant="secondary" onClick={() => setAvatarDeco("")}>
+                            None
                         </Button>
-                    ))}
-                    <Button size="small" variant="secondary" onClick={() => setAvatarDeco("")}>
-                        None
-                    </Button>
-                </Flex>
-            </div>
+                    </Flex>
+                </div>
 
-            {/* Profile Effect */}
-            <div className="vc-fpd-section">
-                <Text className={Margins.bottom8} size="sm"><strong>Profile Effect</strong></Text>
-                <TextInput
-                    value={profileEffect}
-                    placeholder="Enter profile effect SKU ID or select preset below..."
-                    onChange={setProfileEffect}
-                    className={Margins.bottom8}
-                />
-                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
-                    {PROFILE_EFFECT_PRESETS.map(preset => (
-                        <Button
-                            key={preset.value}
-                            size="small"
-                            variant="secondary"
-                            onClick={() => setProfileEffect(preset.value)}
-                        >
-                            {preset.label}
+                <Divider className={classes(Margins.top8, Margins.bottom8)} />
+
+                {/* Profile Effect */}
+                <div className="vc-fpd-section">
+                    <Text className={Margins.bottom8} size="sm"><strong>Profile Effect</strong></Text>
+                    <TextInput
+                        value={profileEffect}
+                        placeholder="Enter profile effect SKU ID or select preset below..."
+                        onChange={setProfileEffect}
+                        className={Margins.bottom8}
+                    />
+                    <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                        {PROFILE_EFFECT_PRESETS.map(preset => (
+                            <Button
+                                key={preset.value}
+                                size="small"
+                                variant="secondary"
+                                onClick={() => setProfileEffect(preset.value)}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                        <Button size="small" variant="secondary" onClick={() => setProfileEffect("")}>
+                            None
                         </Button>
-                    ))}
-                    <Button size="small" variant="secondary" onClick={() => setProfileEffect("")}>
-                        None
-                    </Button>
-                </Flex>
-            </div>
+                    </Flex>
+                </div>
 
-            {/* Profile Frame */}
-            <div className="vc-fpd-section">
-                <Text className={Margins.bottom8} size="sm"><strong>Profile Frame</strong></Text>
-                <TextInput
-                    value={profileFrame}
-                    placeholder="Enter profile frame SKU ID or select preset below..."
-                    onChange={setProfileFrame}
-                    className={Margins.bottom8}
-                />
-                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
-                    {PROFILE_FRAME_PRESETS.map(preset => (
-                        <Button
-                            key={preset.value}
-                            size="small"
-                            variant="secondary"
-                            onClick={() => setProfileFrame(preset.value)}
-                        >
-                            {preset.label}
+                <Divider className={classes(Margins.top8, Margins.bottom8)} />
+
+                {/* Profile Frame */}
+                <div className="vc-fpd-section">
+                    <Text className={Margins.bottom8} size="sm"><strong>Profile Frame</strong></Text>
+                    <TextInput
+                        value={profileFrame}
+                        placeholder="Enter profile frame SKU ID or select preset below..."
+                        onChange={setProfileFrame}
+                        className={Margins.bottom8}
+                    />
+                    <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                        {PROFILE_FRAME_PRESETS.map(preset => (
+                            <Button
+                                key={preset.value}
+                                size="small"
+                                variant="secondary"
+                                onClick={() => setProfileFrame(preset.value)}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                        <Button size="small" variant="secondary" onClick={() => setProfileFrame("")}>
+                            None
                         </Button>
-                    ))}
-                    <Button size="small" variant="secondary" onClick={() => setProfileFrame("")}>
-                        None
-                    </Button>
-                </Flex>
-            </div>
+                    </Flex>
+                </div>
 
-            {/* Nameplate */}
-            <div className="vc-fpd-section">
-                <Text className={Margins.bottom8} size="sm"><strong>Nameplate</strong></Text>
-                <Flex gap="1em" className={Margins.bottom8}>
-                    <TextInput
-                        value={nameplateSku}
-                        placeholder="Enter nameplate SKU ID..."
-                        onChange={setNameplateSku}
-                        style={{ flex: 2 }}
-                    />
-                    <TextInput
-                        value={nameplatePalette}
-                        placeholder="Palette (dark/light)"
-                        onChange={setNameplatePalette}
-                        style={{ flex: 1 }}
-                    />
-                </Flex>
-                <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
-                    {NAMEPLATE_PRESETS.map(preset => (
-                        <Button
-                            key={preset.value}
-                            size="small"
-                            variant="secondary"
-                            onClick={() => {
-                                setNameplateSku(preset.value);
-                                setNameplatePalette("dark");
-                            }}
-                        >
-                            {preset.label}
+                <Divider className={classes(Margins.top8, Margins.bottom8)} />
+
+                {/* Nameplate */}
+                <div className="vc-fpd-section">
+                    <Text className={Margins.bottom8} size="sm"><strong>Nameplate</strong></Text>
+                    <Flex gap="1em" className={Margins.bottom8}>
+                        <TextInput
+                            value={nameplateSku}
+                            placeholder="Enter nameplate SKU ID..."
+                            onChange={setNameplateSku}
+                            style={{ flex: 2 }}
+                        />
+                        <TextInput
+                            value={nameplatePalette}
+                            placeholder="Palette (dark/light)"
+                            onChange={setNameplatePalette}
+                            style={{ flex: 1 }}
+                        />
+                    </Flex>
+                    <Flex gap="0.5em" style={{ flexWrap: "wrap", marginBottom: "16px" }}>
+                        {NAMEPLATE_PRESETS.map(preset => (
+                            <Button
+                                key={preset.value}
+                                size="small"
+                                variant="secondary"
+                                onClick={() => {
+                                    setNameplateSku(preset.value);
+                                    setNameplatePalette("dark");
+                                }}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                        <Button size="small" variant="secondary" onClick={() => setNameplateSku("")}>
+                            None
                         </Button>
-                    ))}
-                    <Button size="small" variant="secondary" onClick={() => setNameplateSku("")}>
-                        None
+                    </Flex>
+                </div>
+
+                <Divider className={classes(Margins.top8, Margins.bottom8)} />
+
+                {/* Display Name Style */}
+                <div className="vc-fpd-section">
+                    <Text className={Margins.bottom8} size="sm"><strong>Display Name Style</strong></Text>
+                    <Flex gap="1em" className={Margins.bottom8}>
+                        <TextInput
+                            value={dnsFontId}
+                            placeholder="Font ID (1-8)"
+                            onChange={setDnsFontId}
+                            style={{ flex: 1 }}
+                        />
+                        <TextInput
+                            value={dnsEffectId}
+                            placeholder="Effect ID (1-4)"
+                            onChange={setDnsEffectId}
+                            style={{ flex: 1 }}
+                        />
+                        <TextInput
+                            value={dnsColors}
+                            placeholder="Hex colors (e.g. #ff0000,#0000ff)"
+                            onChange={setDnsColors}
+                            style={{ flex: 2 }}
+                        />
+                    </Flex>
+                </div>
+
+                {/* Bio Length Warning */}
+                {(() => {
+                    const encodedPreview = encodeDecorations({
+                        avatarDecoration: avatarDeco,
+                        profileEffect,
+                        profileFrame,
+                        nameplateSku,
+                        nameplatePalette,
+                        dnsFontId,
+                        dnsEffectId,
+                        dnsColors
+                    });
+                    const cost = encodedPreview.length;
+                    if (!cost) return null;
+                    return (
+                        <Paragraph size="xs" className={classes(Margins.top8, Margins.bottom8)} style={{ color: cost > 200 ? "var(--text-danger)" : "var(--text-muted)" }}>
+                            Bio length required: {cost} / 300 characters {cost > 200 ? "⚠ (May exceed Discord limit if your bio has text)" : "✔ (Safe to paste)"}
+                        </Paragraph>
+                    );
+                })()}
+
+                {/* Action Buttons */}
+                <Flex gap="1em" className={Margins.top16}>
+                    <Button
+                        onClick={async () => {
+                            const deco: DecodedDecorations = {};
+                            if (avatarDeco.trim()) deco.avatarDecoration = avatarDeco.trim();
+                            if (profileEffect.trim()) deco.profileEffect = profileEffect.trim();
+                            if (profileFrame.trim()) deco.profileFrame = profileFrame.trim();
+                            if (nameplateSku.trim()) deco.nameplate = { skuId: nameplateSku.trim(), palette: nameplatePalette.trim() || "dark" };
+                            if (dnsColors.trim()) {
+                                const colors = dnsColors.split(",").map(c => {
+                                    const trimmed = c.trim();
+                                    return trimmed.startsWith("#") ? parseInt(trimmed.slice(1), 16) : (parseInt(trimmed, 10) || 0);
+                                });
+                                deco.displayNameStyle = {
+                                    fontId: parseInt(dnsFontId, 10) || 1,
+                                    effectId: parseInt(dnsEffectId, 10) || 1,
+                                    colors
+                                };
+                            }
+
+                            setSyncing(true);
+                            try {
+                                await saveRemoteDecorations(deco);
+                                showToast({ text: "Saved your decorations. Other Dimcord users will see them.", variant: "success" });
+                            } catch (e) {
+                                console.error("Failed to save Dimcord decorations", e);
+                                showToast({ text: "Could not save decorations. Check the sync server URL.", variant: "critical" });
+                            } finally {
+                                setSyncing(false);
+                            }
+                        }}
+                        disabled={syncing || !settings.store.syncEnabled}
+                        variant="primary"
+                    >
+                        {syncing ? "Saving..." : "Save to Dimcord"}
                     </Button>
-                </Flex>
-            </div>
-
-            {/* Display Name Style */}
-            <div className="vc-fpd-section">
-                <Text className={Margins.bottom8} size="sm"><strong>Display Name Style</strong></Text>
-                <Flex gap="1em" className={Margins.bottom8}>
-                    <TextInput
-                        value={dnsFontId}
-                        placeholder="Font ID (1-8)"
-                        onChange={setDnsFontId}
-                        style={{ flex: 1 }}
-                    />
-                    <TextInput
-                        value={dnsEffectId}
-                        placeholder="Effect ID (1-4)"
-                        onChange={setDnsEffectId}
-                        style={{ flex: 1 }}
-                    />
-                    <TextInput
-                        value={dnsColors}
-                        placeholder="Hex colors (e.g. #ff0000,#0000ff)"
-                        onChange={setDnsColors}
-                        style={{ flex: 2 }}
-                    />
-                </Flex>
-            </div>
-
-            <Divider className={classes(Margins.top8, Margins.bottom8)} />
-
-            {/* Bio Length Warning */}
-            {(() => {
-                const encodedPreview = encodeDecorations({
-                    avatarDecoration: avatarDeco,
-                    profileEffect,
-                    profileFrame,
-                    nameplateSku,
-                    nameplatePalette,
-                    dnsFontId,
-                    dnsEffectId,
-                    dnsColors
-                });
-                const cost = encodedPreview.length;
-                if (!cost) return null;
-                return (
-                    <Paragraph size="xs" className={Margins.bottom8} style={{ color: cost > 200 ? "var(--text-danger)" : "var(--text-muted)" }}>
-                        Bio length required: {cost} / 300 characters {cost > 200 ? "⚠ (May exceed Discord limit if your bio has text)" : "✔ (Safe to paste)"}
-                    </Paragraph>
-                );
-            })()}
-
-            {/* Action Buttons */}
-            <Flex gap="1em" className={Margins.top8}>
-                <Button
-                    onClick={async () => {
-                        const deco: DecodedDecorations = {};
-                        if (avatarDeco.trim()) deco.avatarDecoration = avatarDeco.trim();
-                        if (profileEffect.trim()) deco.profileEffect = profileEffect.trim();
-                        if (profileFrame.trim()) deco.profileFrame = profileFrame.trim();
-                        if (nameplateSku.trim()) deco.nameplate = { skuId: nameplateSku.trim(), palette: nameplatePalette.trim() || "dark" };
-                        if (dnsColors.trim()) {
-                            const colors = dnsColors.split(",").map(c => {
-                                const trimmed = c.trim();
-                                return trimmed.startsWith("#") ? parseInt(trimmed.slice(1), 16) : (parseInt(trimmed, 10) || 0);
+                    <Button
+                        onClick={() => {
+                            const encodedString = encodeDecorations({
+                                avatarDecoration: avatarDeco,
+                                profileEffect,
+                                profileFrame,
+                                nameplateSku,
+                                nameplatePalette,
+                                dnsFontId,
+                                dnsEffectId,
+                                dnsColors
                             });
-                            deco.displayNameStyle = {
-                                fontId: parseInt(dnsFontId, 10) || 1,
-                                effectId: parseInt(dnsEffectId, 10) || 1,
-                                colors
-                            };
-                        }
-
-                        setSyncing(true);
-                        try {
-                            await saveRemoteDecorations(deco);
-                            showToast({ text: "Saved your decorations. Other Dimcord users will see them.", variant: "success" });
-                        } catch (e) {
-                            console.error("Failed to save Dimcord decorations", e);
-                            showToast({ text: "Could not save decorations. Check the sync server URL.", variant: "critical" });
-                        } finally {
-                            setSyncing(false);
-                        }
-                    }}
-                    disabled={syncing || !settings.store.syncEnabled}
-                    variant="primary"
-                >
-                    {syncing ? "Saving..." : "Save to Dimcord"}
-                </Button>
-                <Button
-                    onClick={() => {
-                        const encodedString = encodeDecorations({
-                            avatarDecoration: avatarDeco,
-                            profileEffect,
-                            profileFrame,
-                            nameplateSku,
-                            nameplatePalette,
-                            dnsFontId,
-                            dnsEffectId,
-                            dnsColors
-                        });
-                        copyWithToast(encodedString, "Copied 3y3 decorations to clipboard! Paste it into your bio.");
-                    }}
-                    variant="secondary"
-                >
-                    Copy 3y3
-                </Button>
-                <Button
-                    onClick={() => {
-                        setAvatarDeco("");
-                        setProfileEffect("");
-                        setProfileFrame("");
-                        setNameplateSku("");
-                        setDnsColors("#ff0000");
-                    }}
-                    variant="secondary"
-                >
-                    Clear
-                </Button>
-            </Flex>
-        </div>
+                            copyWithToast(encodedString, "Copied 3y3 decorations to clipboard! Paste it into your bio.");
+                        }}
+                        variant="secondary"
+                    >
+                        Copy 3y3
+                    </Button>
+                </Flex>
+            </ModalContent>
+        </ModalRoot>
     );
 }
 
@@ -633,15 +637,17 @@ export default definePlugin({
             }
         },
         {
-            find: "PROFILE_SIDEBAR_ITEM_WYSIWYG,",
+            find: '"intl::USER_SETTINGS_AVATAR_DECORATION"',
             replacement: {
-                match: /(?<=#{intl::USER_SETTINGS_AVATAR_DECORATION}\)},"decoration"\),)/,
-                replace: "$&$self.DecorationEditorSection(),"
+                match: /(?<=icon:\i,label:\(0,\i\.jsxs?\)\("span".+?)\+\s*\(\s*0,\s*\i\.jsx?\)\("span".{0,80}function\(\){/,
+                replace: "$&return $self.openFakeDecorationModal();"
             }
         }
     ],
 
-    DecorationEditorSection,
+    openFakeDecorationModal() {
+        openModal(props => <FakeDecorationModal {...props} />);
+    },
 
     getAvatarDecorationHook(user: User) {
         if (settings.store.nitroFirst && user.avatarDecorationData != null) {
