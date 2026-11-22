@@ -34,17 +34,32 @@ export function encodeAudioBufferToMp3(
 
     const blockSize = 1152;
     for (let i = 0; i < sampleCount; i += blockSize) {
-        const leftChunk = leftInt16.subarray(i, i + blockSize);
-        const rightChunk = channels > 1 ? rightInt16.subarray(i, i + blockSize) : undefined;
+        let leftChunk = leftInt16.subarray(i, i + blockSize);
+        let rightChunk = channels > 1 ? rightInt16.subarray(i, i + blockSize) : undefined;
+
+        // If the final chunk is less than blockSize, pad with silence to prevent LAME frame distortion
+        if (leftChunk.length < blockSize) {
+            const padLeft = new Int16Array(blockSize);
+            padLeft.set(leftChunk);
+            leftChunk = padLeft;
+
+            if (channels > 1 && rightChunk) {
+                const padRight = new Int16Array(blockSize);
+                padRight.set(rightChunk);
+                rightChunk = padRight;
+            }
+        }
+
         const mp3Chunk = encoder.encodeBuffer(leftChunk, rightChunk);
         if (mp3Chunk && mp3Chunk.length > 0) {
-            chunks.push(new Uint8Array(mp3Chunk));
+            // mp3Chunk is an Int8Array view; safely copy to Uint8Array
+            chunks.push(new Uint8Array(mp3Chunk.buffer, mp3Chunk.byteOffset, mp3Chunk.byteLength));
         }
     }
 
     const finalChunk = encoder.flush();
     if (finalChunk && finalChunk.length > 0) {
-        chunks.push(new Uint8Array(finalChunk));
+        chunks.push(new Uint8Array(finalChunk.buffer, finalChunk.byteOffset, finalChunk.byteLength));
     }
 
     const totalLength = chunks.reduce((acc, curr) => acc + curr.length, 0);
