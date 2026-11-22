@@ -34,52 +34,74 @@ import { useAwaiter } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
 import { User } from "@vencord/discord-types";
 import { findComponentByCodeLazy } from "@webpack";
-import { ColorPicker, React, UserProfileStore, UserStore, useState } from "@webpack/common";
+import { ColorPicker, React, TextInput, UserProfileStore, UserStore, useState } from "@webpack/common";
 
-interface CachedDecodedThemeColors {
+interface CachedDecodedProfile {
     decodedBio: string;
     themeColors: number[] | null;
+    bannerUrl: string | null;
 }
 
-const decodedThemeColorsCache = new Map<string, CachedDecodedThemeColors>();
+const decodedProfileCache = new Map<string, CachedDecodedProfile>();
 
-function encode(primary: number, accent: number): string {
-    const message = `[#${primary.toString(16).padStart(6, "0")},#${accent.toString(16).padStart(6, "0")}]`;
-    const padding = "";
-    const encoded = Array.from(message)
-        .map(x => x.codePointAt(0))
-        .filter(x => x! >= 0x20 && x! <= 0x7f)
-        .map(x => String.fromCodePoint(x! + 0xe0000))
-        .join("");
-
-    return (padding || "") + " " + encoded;
-}
-
-const DecodeRegex = /\[#([a-fA-F0-9]{1,6}),#([a-fA-F0-9]{1,6})\]/;
-function decode(bio: string): Array<number> | null {
-    if (bio == null) return null;
-
+function get3y3Ascii(bio: string | null | undefined): string {
+    if (bio == null) return "";
     let ascii = "";
     for (const ch of bio) {
-        const cp = ch.codePointAt(0)!;
+        const cp = ch.codePointAt(0) ?? 0;
         if (cp >= 0xe0000 && cp <= 0xe007f) {
             ascii += String.fromCodePoint(cp - 0xe0000);
         }
     }
+    return ascii;
+}
 
+function encode(primary: number, accent: number, bannerUrl?: string): string {
+    let message = `[#${primary.toString(16).padStart(6, "0")},#${accent.toString(16).padStart(6, "0")}]`;
+    if (bannerUrl?.trim()) {
+        const trimmed = bannerUrl.trim();
+        const imgurMatch = trimmed.match(/https?:\/\/i\.imgur\.com\/([a-zA-Z0-9]+)/);
+        const hash = imgurMatch ? imgurMatch[1] : trimmed;
+        message += ` B{${hash}}`;
+    }
+
+    const encoded = Array.from(message)
+        .map(x => x.codePointAt(0) ?? 0)
+        .filter(x => x >= 0x20 && x <= 0x7f)
+        .map(x => String.fromCodePoint(x + 0xe0000))
+        .join("");
+
+    return " " + encoded;
+}
+
+const DecodeRegex = /\[#([a-fA-F0-9]{1,6}),#([a-fA-F0-9]{1,6})\]/;
+function decodeColors(bio: string): number[] | null {
+    const ascii = get3y3Ascii(bio);
     const match = ascii.match(DecodeRegex);
     if (!match) return null;
 
     return [parseInt(match[1], 16), parseInt(match[2], 16)];
 }
 
+const BannerRegex = /B\{([^}]+)\}/;
+function decodeBanner(bio: string): string | null {
+    const ascii = get3y3Ascii(bio);
+    const match = ascii.match(BannerRegex);
+    if (!match) return null;
+
+    const val = match[1].trim();
+    if (val.startsWith("http://") || val.startsWith("https://")) return val;
+    if (/^[a-zA-Z0-9]+$/.test(val)) return `https://i.imgur.com/${val}.gif`;
+    return val;
+}
+
 const settings = definePluginSettings({
     nitroFirst: {
-        description: "Default color source if both are present",
+        description: "Default color and banner source if both are present",
         type: OptionType.SELECT,
         options: [
-            { label: "Nitro colors", value: true, default: true },
-            { label: "Fake colors", value: false },
+            { label: "Nitro customizations", value: true, default: true },
+            { label: "Fake customizations", value: false },
         ]
     }
 });
@@ -91,6 +113,7 @@ const settings = definePluginSettings({
 interface ProfileModalProps {
     user: User;
     pendingThemeColors: [number, number];
+    pendingBanner?: { imageUri: string; };
     onAvatarChange: () => void;
     onBannerChange: () => void;
     canUsePremiumCustomization: boolean;
@@ -108,23 +131,25 @@ function SettingsAboutComponentWrapper() {
 }
 
 function SettingsAboutComponent() {
-    const existingColors = decode(
-        UserProfileStore.getUserProfile(UserStore.getCurrentUser().id)?.bio ?? ""
-    ) ?? [0, 0];
+    const userBio = UserProfileStore.getUserProfile(UserStore.getCurrentUser().id)?.bio ?? "";
+    const existingColors = decodeColors(userBio) ?? [0, 0];
+    const existingBanner = decodeBanner(userBio) ?? "";
     const [color1, setColor1] = useState(existingColors[0]);
     const [color2, setColor2] = useState(existingColors[1]);
+    const [bannerUrl, setBannerUrl] = useState(existingBanner);
 
     return (
         <section>
             <Heading className={Margins.bottom8}>Usage</Heading>
             <Paragraph>
-                After enabling this plugin, you will see custom colors in
+                After enabling this plugin, you will see custom colors and background photos in
                 the profiles of other people using compatible plugins.{" "}
             </Paragraph>
             <Text size="sm" className={Margins.top8}>
-                <strong>To set your own profile theme colors:</strong>
+                <strong>To set your own profile theme colors and background photo:</strong>
                 <ul>
                     <li>&mdash; use the color pickers below to choose your colors</li>
+                    <li>&mdash; enter an image link below to set a background photo</li>
                     <li>&mdash; click the "Copy 3y3" button</li>
                     <li>&mdash; paste the invisible text anywhere in your bio</li>
                 </ul>
@@ -163,8 +188,8 @@ function SettingsAboutComponent() {
                     />
                     <Button
                         onClick={() => {
-                            const colorString = encode(color1, color2);
-                            copyWithToast(colorString);
+                            const encodedString = encode(color1, color2, bannerUrl);
+                            copyWithToast(encodedString);
                         }}
                         variant="secondary"
                         style={{ marginBottom: "auto" }}
@@ -175,11 +200,21 @@ function SettingsAboutComponent() {
                 <Divider
                     className={classes(Margins.top8, Margins.bottom8)}
                 />
+                <Heading className={Margins.bottom8}>Background Photo / Banner</Heading>
+                <TextInput
+                    value={bannerUrl}
+                    placeholder="https://i.imgur.com/... or direct image URL"
+                    onChange={setBannerUrl}
+                />
+                <Divider
+                    className={classes(Margins.top8, Margins.bottom8)}
+                />
                 <Heading className={Margins.bottom8}>Preview</Heading>
                 <div className="vc-fpt-preview">
                     <ProfileModal
                         user={UserStore.getCurrentUser()}
                         pendingThemeColors={[color1, color2]}
+                        pendingBanner={bannerUrl ? { imageUri: bannerUrl } : undefined}
                         onAvatarChange={() => { }}
                         onBannerChange={() => { }}
                         canUsePremiumCustomization={true}
@@ -194,7 +229,7 @@ function SettingsAboutComponent() {
 
 export default definePlugin({
     name: "FakeProfileThemes",
-    description: "Allows profile theming by hiding the colors in your bio thanks to invisible 3y3 encoding",
+    description: "Allows profile theming by hiding the colors and background in your bio thanks to invisible 3y3 encoding",
     tags: ["Appearance", "Customisation"],
     authors: [Devs.Alyxia, Devs.Remty],
     settings,
@@ -211,8 +246,19 @@ export default definePlugin({
                 {
                     match: /canEditThemes\(\){/,
                     replace: "$&return true;"
+                },
+                {
+                    match: /getBannerURL\((\i)\)\{/,
+                    replace: "$&const vcBanner=$self.bannerDecodeHook(this);if(vcBanner)return vcBanner;"
                 }
             ],
+        },
+        {
+            find: ':"SHOULD_LOAD");',
+            replacement: {
+                match: /\i(?:\?)?.getPreviewBanner\(\i,\i,\i\)(?=.{0,100}"COMPLETE")/,
+                replace: "$self.bannerDecodeHook(arguments[0]?.displayProfile)||$&"
+            }
         }
     ],
 
@@ -222,19 +268,51 @@ export default definePlugin({
         }
 
         if (profile?.bio != null) {
-            const cached = decodedThemeColorsCache.get(profile.userId);
+            const cached = decodedProfileCache.get(profile.userId);
             if (cached != null && cached.decodedBio === profile.bio) {
                 return cached.themeColors ?? profile?.themeColors;
             }
 
-            const decodedThemeColors = decode(profile.bio);
-            decodedThemeColorsCache.set(profile.userId, { decodedBio: profile.bio, themeColors: decodedThemeColors });
+            const decodedColors = decodeColors(profile.bio);
+            const decodedBanner = decodeBanner(profile.bio);
+            decodedProfileCache.set(profile.userId, {
+                decodedBio: profile.bio,
+                themeColors: decodedColors,
+                bannerUrl: decodedBanner
+            });
 
-            if (decodedThemeColors != null) {
-                return decodedThemeColors;
+            if (decodedColors != null) {
+                return decodedColors;
             }
         }
 
         return profile?.themeColors;
+    },
+
+    bannerDecodeHook(profile: any) {
+        if (settings.store.nitroFirst && profile?.banner != null) {
+            return null;
+        }
+
+        if (profile?.bio != null) {
+            const cached = decodedProfileCache.get(profile.userId);
+            if (cached != null && cached.decodedBio === profile.bio) {
+                return cached.bannerUrl;
+            }
+
+            const decodedColors = decodeColors(profile.bio);
+            const decodedBanner = decodeBanner(profile.bio);
+            decodedProfileCache.set(profile.userId, {
+                decodedBio: profile.bio,
+                themeColors: decodedColors,
+                bannerUrl: decodedBanner
+            });
+
+            if (decodedBanner != null) {
+                return decodedBanner;
+            }
+        }
+
+        return null;
     }
 });
