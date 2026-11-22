@@ -30,7 +30,7 @@ export const settings = definePluginSettings({
     },
     bitrate: {
         type: OptionType.SELECT,
-        description: "MP3 Audio Quality / Bitrate",
+        description: "MP3 Audio Quality / Bitrate (LOWER = SMALLER SIZE BUT WORSE QUALITY)",
         options: [
             { label: "128 kbps (Compact)", value: 128 },
             { label: "192 kbps (Standard)", value: 192, default: true },
@@ -143,7 +143,7 @@ async function startRecording(channelId: string) {
             const channel = ChannelStore.getChannel(channelId);
             const channelName = channel?.name || "Call";
             showToast({
-                text: `Call recording started: ${channelName}`,
+                text: `🎙️ Call recording started: ${channelName}`,
                 variant: "info"
             });
         }
@@ -228,15 +228,7 @@ async function finalizeAndSaveRecording(channelId: string) {
             title = "Discord_Call";
         }
 
-        // Strip Discord custom emojis, Unicode emojis, and non-alphanumeric chars for a clean filename
-        const cleanTitle = title
-            .replace(/<a?:\w+:\d+>/g, "")
-            .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu, "")
-            .replace(/[^\p{L}\p{N}\s-]/gu, " ")
-            .trim()
-            .replace(/[\s_-]+/g, "_")
-            .replace(/^_+|_+$/g, "")
-            || "Call";
+        const cleanTitle = title.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "Call";
         const now = new Date();
         const pad = (n: number) => n.toString().padStart(2, "0");
         const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
@@ -248,7 +240,7 @@ async function finalizeAndSaveRecording(channelId: string) {
         if (result.success) {
             if (settings.store.notifyOnSave) {
                 showToast({
-                    text: `Call saved to Music/${subfolder}/${filename}`,
+                    text: `💾 Call saved to Music/${subfolder}/${filename}`,
                     variant: "success"
                 });
             }
