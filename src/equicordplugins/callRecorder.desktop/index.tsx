@@ -23,23 +23,10 @@ export const settings = definePluginSettings({
         description: "Automatically start recording when entering a voice channel or call",
         default: true
     },
-    audioSource: {
-        type: OptionType.SELECT,
-        description: "Audio Capture Method",
-        options: [
-            { label: "Default Call Loopback", value: "loopback", default: true },
-            { label: "Specific Audio Device (Virtual Cable / Chat Channel)", value: "device" }
-        ] as const
-    },
-    deviceKeyword: {
-        type: OptionType.STRING,
-        description: "Device name keyword to match (e.g. 'Cable', 'Voice', 'Chat') when using Specific Audio Device",
-        default: "Cable"
-    },
     recordMicrophone: {
         type: OptionType.BOOLEAN,
-        description: "Include your own microphone in the recording (disable if you want only other participants)",
-        default: false
+        description: "Include your own microphone in the recording",
+        default: true
     },
     bitrate: {
         type: OptionType.SELECT,
@@ -74,47 +61,6 @@ let currentRecordingChannelId: string | null = null;
 let activeStreamsToStop: MediaStream[] = [];
 let isProcessing = false;
 
-async function getAudioStream(): Promise<MediaStream | null> {
-    if (settings.store.audioSource === "device") {
-        // Attempt to find specific device (e.g. Virtual Cable / Chat device)
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const keyword = (settings.store.deviceKeyword || "").toLowerCase();
-            const matched = devices.find(d => d.kind === "audioinput" && d.label.toLowerCase().includes(keyword));
-
-            if (matched) {
-                return await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        deviceId: { exact: matched.deviceId },
-                        echoCancellation: false,
-                        noiseSuppression: false,
-                        autoGainControl: false,
-                    }
-                });
-            }
-        } catch (e) {
-            console.warn("[CallRecorder] Specific device lookup failed, falling back to loopback:", e);
-        }
-    }
-
-    // Default: Loopback audio capture
-    await Native.enableAutoCapture();
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-        },
-        video: {
-            frameRate: { ideal: 1, max: 1 },
-            width: { ideal: 16, max: 16 },
-            height: { ideal: 16, max: 16 }
-        }
-    });
-
-    return stream;
-}
-
 async function startRecording(channelId: string) {
     if (activeRecorder && activeRecorder.state === "recording") {
         if (currentRecordingChannelId === channelId) return;
@@ -122,42 +68,43 @@ async function startRecording(channelId: string) {
     }
 
     try {
+        await Native.enableAutoCapture();
+
         recordedChunks = [];
         activeStreamsToStop = [];
         currentRecordingChannelId = channelId;
 
-        // 1. Capture call audio
-        const callStream = await getAudioStream();
-        if (!callStream) {
-            throw new Error("Could not acquire audio stream");
-        }
-        activeStreamsToStop.push(callStream);
+        // 1. Capture system/call audio via desktop loopback
+        const desktopStream = await navigator.mediaDevices.getDisplayMedia({
+            audio: true,
+            video: true
+        });
+        activeStreamsToStop.push(desktopStream);
 
-        const callAudioTracks = callStream.getAudioTracks();
-        if (callAudioTracks.length === 0) {
-            throw new Error("No audio track present in call stream");
+        // Immediately terminate video tracks to consume no video CPU/RAM
+        desktopStream.getVideoTracks().forEach(track => track.stop());
+
+        const audioTracks = desktopStream.getAudioTracks();
+        if (audioTracks.length === 0) {
+            console.warn("[CallRecorder] No audio track received from desktop loopback");
         }
 
-        // 2. Setup Web Audio mixing graph with a fixed standard sample rate (48kHz)
-        audioContext = new AudioContext({ sampleRate: 48000 });
+        // 2. Setup Web Audio mixing graph
+        audioContext = new AudioContext();
         const destination = audioContext.createMediaStreamDestination();
 
-        const callSource = audioContext.createMediaStreamSource(new MediaStream([callAudioTracks[0]]));
-        const callGain = audioContext.createGain();
-        callGain.gain.value = 1.0;
-        callSource.connect(callGain);
-        callGain.connect(destination);
+        if (audioTracks.length > 0) {
+            const loopbackSource = audioContext.createMediaStreamSource(new MediaStream([audioTracks[0]]));
+            const loopbackGain = audioContext.createGain();
+            loopbackGain.gain.value = 1.0;
+            loopbackSource.connect(loopbackGain);
+            loopbackGain.connect(destination);
+        }
 
         // 3. Capture own microphone if enabled
         if (settings.store.recordMicrophone) {
             try {
-                const micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
+                const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 activeStreamsToStop.push(micStream);
                 if (micStream.getAudioTracks().length > 0) {
                     const micSource = audioContext.createMediaStreamSource(micStream);
@@ -171,15 +118,12 @@ async function startRecording(channelId: string) {
             }
         }
 
-        // 4. Initialize MediaRecorder on destination stream
+        // 4. Initialize MediaRecorder
         const mimeType = MediaRecorder.isTypeSupported("audio/webm; codecs=opus")
             ? "audio/webm; codecs=opus"
             : "audio/webm";
 
-        const recorder = new MediaRecorder(destination.stream, {
-            mimeType,
-            audioBitsPerSecond: 192000
-        });
+        const recorder = new MediaRecorder(destination.stream, { mimeType });
         activeRecorder = recorder;
 
         recorder.ondataavailable = e => {
@@ -199,7 +143,7 @@ async function startRecording(channelId: string) {
             const channel = ChannelStore.getChannel(channelId);
             const channelName = channel?.name || "Call";
             showToast({
-                text: `🎙️ Recording call: ${channelName}`,
+                text: `Call recording started: ${channelName}`,
                 variant: "info"
             });
         }
@@ -252,14 +196,14 @@ async function finalizeAndSaveRecording(channelId: string) {
         const blob = new Blob(recordedChunks, { type: "audio/webm" });
         recordedChunks = [];
 
-        // If recording is negligible (< 4KB), discard
-        if (blob.size < 4096) {
+        // If recording is negligible (e.g. less than 1KB), discard
+        if (blob.size < 2048) {
             cleanupStreams();
             return;
         }
 
         // Decode audio data to PCM AudioBuffer
-        const decodeCtx = new AudioContext({ sampleRate: 48000 });
+        const decodeCtx = new AudioContext();
         const arrayBuf = await blob.arrayBuffer();
         let audioBuffer: AudioBuffer;
         try {
@@ -284,7 +228,15 @@ async function finalizeAndSaveRecording(channelId: string) {
             title = "Discord_Call";
         }
 
-        const cleanTitle = title.replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "_") || "Call";
+        // Strip Discord custom emojis, Unicode emojis, and non-alphanumeric chars for a clean filename
+        const cleanTitle = title
+            .replace(/<a?:\w+:\d+>/g, "")
+            .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji}\uFE0F]/gu, "")
+            .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+            .trim()
+            .replace(/[\s_-]+/g, "_")
+            .replace(/^_+|_+$/g, "")
+            || "Call";
         const now = new Date();
         const pad = (n: number) => n.toString().padStart(2, "0");
         const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
@@ -296,13 +248,13 @@ async function finalizeAndSaveRecording(channelId: string) {
         if (result.success) {
             if (settings.store.notifyOnSave) {
                 showToast({
-                    text: `💾 Saved: ${filename}`,
+                    text: `Call saved to Music/${subfolder}/${filename}`,
                     variant: "success"
                 });
             }
         } else {
             showToast({
-                text: `Failed to save: ${result.error}`,
+                text: `Failed to save call recording: ${result.error}`,
                 variant: "critical"
             });
         }

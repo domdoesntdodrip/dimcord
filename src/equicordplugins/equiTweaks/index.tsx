@@ -19,8 +19,7 @@ import { findByCodeLazy } from "@webpack";
 import { ApplicationCommandIndexStore, Constants, ExpressionPickerStore, Menu, React, RestAPI, SafetyHubStore, SettingsRouter, UserGuildSettingsStore, UserStore, useStateFromStores, VoiceStateStore } from "@webpack/common";
 import { ComponentType } from "react";
 
-migratePluginSettings("EquiTweaks", "DimcordHelper");
-migratePluginSettings("EquicordHelper", "DimcordHelper");
+migratePluginSettings("EquiTweaks", "EquicordHelper");
 migratePluginToSettings(true, "EquiTweaks", "NoBulletPoints", "noBulletPoints");
 migratePluginToSettings(true, "EquiTweaks", "NoModalAnimation", "noModalAnimation");
 migratePluginToSettings(true, "EquiTweaks", "GuildTagSettings", "disableAdoptTagPrompt");

@@ -76,7 +76,7 @@ function NewPluginsModal({ modalProps, newPlugins, newSettings }: ModalComponent
 
         if (isRequired) {
             const tooltipText = p.required
-                ? "This plugin is required for Dimcord to function."
+                ? "This plugin is required for Equicord to function."
                 : <PluginDependencyList deps={depMap[p.name]?.filter(d => settings.plugins[d].enabled)} />;
 
             requiredPluginCards.push(
@@ -135,7 +135,7 @@ function NewPluginsModal({ modalProps, newPlugins, newSettings }: ModalComponent
                     </Text>
                     <br />
                     <Notice.Info className={cl("notice")}>
-                        Dimcord is Open Source Software. If you enjoy using it, consider supporting us <Link href="https://github.com/domdoesntdodrip/dimcord" target="_blank" rel="noopener noreferrer">here</Link>.
+                        Equicord is Open Source Software. If you enjoy using it, consider supporting us <Link href="https://github.com/sponsors/thororen1234" target="_blank" rel="noopener noreferrer">here</Link>.
                     </Notice.Info>
                 </>
             }
