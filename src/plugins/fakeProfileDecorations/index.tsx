@@ -20,7 +20,64 @@ import { classes } from "@utils/misc";
 import { useAwaiter } from "@utils/react";
 import definePlugin, { OptionType } from "@utils/types";
 import { User } from "@vencord/discord-types";
-import { Avatar, React, TextInput, UserProfileStore, UserStore, useState } from "@webpack/common";
+import { Avatar, React, showToast, TextInput, UserProfileStore, UserStore, useState } from "@webpack/common";
+
+const DEFAULT_SYNC_SERVER = "https://dimcord-api.domcurto13.workers.dev/";
+const REMOTE_REFRESH_INTERVAL = 60_000;
+
+const remoteDecorations = new Map<string, DecodedDecorations>();
+let refreshInterval: ReturnType<typeof setInterval> | undefined;
+
+function getSyncServer() {
+    const server = settings.store.syncServer.trim().replace(/\/+$/, "");
+    return server.startsWith("https://") ? server : "";
+}
+
+function pickDecorations(raw: DecodedDecorations): DecodedDecorations {
+    const deco: DecodedDecorations = {};
+    if (raw.avatarDecoration) deco.avatarDecoration = raw.avatarDecoration;
+    if (raw.profileEffect) deco.profileEffect = raw.profileEffect;
+    if (raw.profileFrame) deco.profileFrame = raw.profileFrame;
+    if (raw.nameplate?.skuId) deco.nameplate = raw.nameplate;
+    if (raw.displayNameStyle) deco.displayNameStyle = raw.displayNameStyle;
+    return deco;
+}
+
+async function fetchRemoteProfiles() {
+    const server = getSyncServer();
+    if (!settings.store.syncEnabled || !server) return;
+
+    try {
+        const res = await fetch(`${server}/profiles`);
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+        const data: Record<string, DecodedDecorations> = await res.json();
+        remoteDecorations.clear();
+        for (const [userId, profile] of Object.entries(data)) {
+            if (profile && typeof profile === "object") {
+                remoteDecorations.set(userId, pickDecorations(profile));
+            }
+        }
+        userDecoCache.clear();
+    } catch (e) {
+        console.error("Failed to fetch Dimcord decorations", e);
+    }
+}
+
+async function saveRemoteDecorations(deco: DecodedDecorations) {
+    const server = getSyncServer();
+    const userId = UserStore.getCurrentUser().id;
+
+    const res = await fetch(`${server}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, ...deco })
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
+    remoteDecorations.set(userId, deco);
+    userDecoCache.clear();
+}
 
 export interface DecodedDecorations {
     avatarDecoration?: string;
@@ -54,6 +111,10 @@ const PROFILE_EFFECT_REGEX = /fx([a-zA-Z0-9]+)/;
 const PROFILE_FRAME_REGEX = /pf([a-zA-Z0-9]+)/;
 const NAMEPLATE_REGEX = /n\{([a-zA-Z0-9]+)(?:,([^}]+))?\}/;
 const DISPLAY_NAME_STYLE_REGEX = /S\{([^}]+)\}/;
+
+function getDecorationAssetUrl(skuId: string, animated = true) {
+    return `https://cdn.discordapp.com/media/v1/collectibles-shop/${skuId}/${animated ? "animated" : "static"}`;
+}
 
 function toBase36(id: string): string {
     const trimmed = id.trim();
@@ -183,13 +244,17 @@ function getUserBio(userId: string): string {
 function getDecodedDecorationsForUser(userId: string, bioOverride?: string): DecodedDecorations {
     const bio = bioOverride ?? getUserBio(userId);
     const cached = userDecoCache.get(userId);
+
+    let bioDecorations: DecodedDecorations;
     if (cached && cached.bio === bio) {
-        return cached.decorations;
+        bioDecorations = cached.decorations;
+    } else {
+        bioDecorations = decodeDecorations(bio);
+        userDecoCache.set(userId, { bio, decorations: bioDecorations });
     }
 
-    const decorations = decodeDecorations(bio);
-    userDecoCache.set(userId, { bio, decorations });
-    return decorations;
+    const remote = remoteDecorations.get(userId);
+    return remote ? { ...bioDecorations, ...remote } : bioDecorations;
 }
 
 const AVATAR_DECORATION_PRESETS = [
@@ -225,6 +290,27 @@ const settings = definePluginSettings({
         description: "Default to official Nitro decorations if both fake and Nitro decorations are present",
         type: OptionType.BOOLEAN,
         default: true
+    },
+    syncEnabled: {
+        description: "Sync your decorations to the Dimcord server so other Dimcord users can see them",
+        type: OptionType.BOOLEAN,
+        default: true,
+        onChange() {
+            if (settings.store.syncEnabled) {
+                fetchRemoteProfiles();
+            } else {
+                remoteDecorations.clear();
+                userDecoCache.clear();
+            }
+        }
+    },
+    syncServer: {
+        description: "Dimcord sync server URL",
+        type: OptionType.STRING,
+        default: DEFAULT_SYNC_SERVER,
+        onChange() {
+            fetchRemoteProfiles();
+        }
     }
 });
 
@@ -236,8 +322,8 @@ function SettingsAboutComponentWrapper() {
 
 function SettingsAboutComponent() {
     const currentUser = UserStore.getCurrentUser();
-    const existingBio = UserProfileStore.getUserProfile(currentUser.id)?.bio ?? "";
-    const existingDeco = decodeDecorations(existingBio);
+    const existingDeco = getDecodedDecorationsForUser(currentUser.id);
+    const [syncing, setSyncing] = useState(false);
 
     const [avatarDeco, setAvatarDeco] = useState(existingDeco.avatarDecoration ?? "");
     const [profileEffect, setProfileEffect] = useState(existingDeco.profileEffect ?? "");
@@ -257,8 +343,9 @@ function SettingsAboutComponent() {
             <Heading className={Margins.bottom8}>Usage</Heading>
             <Paragraph>
                 This plugin allows anyone to use Nitro profile decorations (Avatar Decorations, Profile Effects,
-                Profile Frames, Nameplates, and Display Name Styles) using invisible 3y3 encoding in your bio.
-                Only users running a compatible client mod (Vencord, Equicord, etc.) with this plugin will see your custom decorations.
+                Profile Frames, Nameplates, and Display Name Styles) without owning them.
+                Decorations are saved to the Dimcord server so every Dimcord user sees them on your profile.
+                The 3y3 bio code below is a fallback and is optional.
             </Paragraph>
 
             <Divider className={classes(Margins.top8, Margins.bottom8)} />
@@ -267,6 +354,7 @@ function SettingsAboutComponent() {
             <div className="vc-fpd-preview-card">
                 <Avatar
                     src={currentUser.getAvatarURL(null, 80)}
+                    avatarDecoration={avatarDeco ? { skuId: avatarDeco, asset: getDecorationAssetUrl(avatarDeco) } : undefined}
                     size="SIZE_80"
                 />
                 <div className="vc-fpd-preview-details">
@@ -452,6 +540,41 @@ function SettingsAboutComponent() {
 
             <Flex gap="1em" className={Margins.top8}>
                 <Button
+                    onClick={async () => {
+                        const deco: DecodedDecorations = {};
+                        if (avatarDeco.trim()) deco.avatarDecoration = avatarDeco.trim();
+                        if (profileEffect.trim()) deco.profileEffect = profileEffect.trim();
+                        if (profileFrame.trim()) deco.profileFrame = profileFrame.trim();
+                        if (nameplateSku.trim()) deco.nameplate = { skuId: nameplateSku.trim(), palette: nameplatePalette.trim() || "dark" };
+                        if (dnsColors.trim()) {
+                            const colors = dnsColors.split(",").map(c => {
+                                const trimmed = c.trim();
+                                return trimmed.startsWith("#") ? parseInt(trimmed.slice(1), 16) : (parseInt(trimmed, 10) || 0);
+                            });
+                            deco.displayNameStyle = {
+                                fontId: parseInt(dnsFontId, 10) || 1,
+                                effectId: parseInt(dnsEffectId, 10) || 1,
+                                colors
+                            };
+                        }
+
+                        setSyncing(true);
+                        try {
+                            await saveRemoteDecorations(deco);
+                            showToast({ text: "Saved your decorations. Other Dimcord users will see them.", variant: "success" });
+                        } catch (e) {
+                            console.error("Failed to save Dimcord decorations", e);
+                            showToast({ text: "Could not save decorations. Check the sync server URL.", variant: "critical" });
+                        } finally {
+                            setSyncing(false);
+                        }
+                    }}
+                    disabled={syncing || !settings.store.syncEnabled}
+                    variant="primary"
+                >
+                    {syncing ? "Saving..." : "Save to Dimcord"}
+                </Button>
+                <Button
                     onClick={() => {
                         const encodedString = encodeDecorations({
                             avatarDecoration: avatarDeco,
@@ -465,7 +588,7 @@ function SettingsAboutComponent() {
                         });
                         copyWithToast(encodedString, "Copied 3y3 decorations to clipboard! Paste it into your bio.");
                     }}
-                    variant="primary"
+                    variant="secondary"
                 >
                     Copy 3y3 Decorations
                 </Button>
@@ -482,6 +605,11 @@ function SettingsAboutComponent() {
                     Clear All
                 </Button>
             </Flex>
+            {!settings.store.syncEnabled && (
+                <Paragraph size="xs" className={Margins.top8} style={{ color: "var(--text-muted)" }}>
+                    Server sync is disabled. Enable it above or use the 3y3 bio fallback.
+                </Paragraph>
+            )}
         </section>
     );
 }
@@ -493,6 +621,19 @@ export default definePlugin({
     authors: [Devs.Ven, EquicordDevs.nexpid],
     settings,
     settingsAboutComponent: SettingsAboutComponentWrapper,
+
+    start() {
+        if (!settings.store.syncEnabled) return;
+        fetchRemoteProfiles();
+        refreshInterval = setInterval(fetchRemoteProfiles, REMOTE_REFRESH_INTERVAL);
+    },
+
+    stop() {
+        if (refreshInterval !== undefined) {
+            clearInterval(refreshInterval);
+            refreshInterval = undefined;
+        }
+    },
 
     patches: [
         {
@@ -544,7 +685,10 @@ export default definePlugin({
 
         const deco = getDecodedDecorationsForUser(user.id);
         if (deco.avatarDecoration) {
-            return { skuId: deco.avatarDecoration };
+            return {
+                skuId: deco.avatarDecoration,
+                asset: getDecorationAssetUrl(deco.avatarDecoration)
+            };
         }
 
         return null;
