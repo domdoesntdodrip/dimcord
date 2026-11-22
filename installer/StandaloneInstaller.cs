@@ -4,9 +4,11 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -571,6 +573,132 @@ namespace Dimcord.Installer
             RefreshInstalls();
         }
 
+        private bool TryInstallFromRepoSource(string permanentDir)
+        {
+            try
+            {
+                ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | (SecurityProtocolType)768 | SecurityProtocolType.Tls;
+
+                string repo = "domdoesntdodrip/dimcord";
+                string downloadUrl = null;
+                string sourceLabel = null;
+
+                Log("Checking repo for latest Dimcord release (" + repo + ")...");
+
+                try
+                {
+                    using (WebClient client = new WebClient())
+                    {
+                        client.Headers.Add("User-Agent", "DimcordInstaller");
+                        client.Headers.Add("Accept", "application/vnd.github.v3+json");
+                        string json = client.DownloadString("https://api.github.com/repos/" + repo + "/releases");
+
+                        string[] targetNames = new string[] { "desktop.zip", "payload.zip", "dimcord-desktop.zip", "dimcord.zip" };
+                        foreach (string target in targetNames)
+                        {
+                            string pattern = "\"name\"\\s*:\\s*\"" + Regex.Escape(target) + "\"[\\s\\S]*?\"browser_download_url\"\\s*:\\s*\"(https://[^\"]+)\"";
+                            Match m = Regex.Match(json, pattern, RegexOptions.IgnoreCase);
+                            if (m.Success)
+                            {
+                                downloadUrl = m.Groups[1].Value;
+                                sourceLabel = target + " (via GitHub Releases)";
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception apiEx)
+                {
+                    Log("Releases API check note: " + apiEx.Message);
+                }
+
+                if (string.IsNullOrEmpty(downloadUrl))
+                {
+                    string[] directUrls = new string[]
+                    {
+                        "https://github.com/" + repo + "/releases/latest/download/desktop.zip",
+                        "https://github.com/" + repo + "/releases/latest/download/payload.zip",
+                        "https://github.com/" + repo + "/releases/download/prereleasev1/desktop.zip",
+                        "https://github.com/" + repo + "/releases/download/prereleasev1/payload.zip",
+                        "https://raw.githubusercontent.com/" + repo + "/master/dist/desktop.zip"
+                    };
+
+                    foreach (string testUrl in directUrls)
+                    {
+                        try
+                        {
+                            HttpWebRequest req = (HttpWebRequest)WebRequest.Create(testUrl);
+                            req.UserAgent = "DimcordInstaller";
+                            req.Method = "HEAD";
+                            req.AllowAutoRedirect = true;
+                            req.Timeout = 4000;
+                            using (HttpWebResponse resp = (HttpWebResponse)req.GetResponse())
+                            {
+                                if (resp.StatusCode == HttpStatusCode.OK)
+                                {
+                                    downloadUrl = testUrl;
+                                    sourceLabel = testUrl;
+                                    break;
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(downloadUrl))
+                {
+                    Log("No online release asset found in repository. Using bundled payload.");
+                    return false;
+                }
+
+                Log("Downloading latest Dimcord build from " + sourceLabel + "...");
+                byte[] zipBytes = null;
+                using (WebClient client = new WebClient())
+                {
+                    client.Headers.Add("User-Agent", "DimcordInstaller");
+                    zipBytes = client.DownloadData(downloadUrl);
+                }
+
+                if (zipBytes == null || zipBytes.Length < 100)
+                {
+                    throw new Exception("Downloaded build archive is empty or invalid.");
+                }
+
+                Log("Downloaded " + (zipBytes.Length / 1024) + " KB. Extracting into AppData/Dimcord...");
+                using (MemoryStream ms = new MemoryStream(zipBytes))
+                using (ZipArchive archive = new ZipArchive(ms, ZipArchiveMode.Read))
+                {
+                    foreach (ZipArchiveEntry entry in archive.Entries)
+                    {
+                        string destPath = System.IO.Path.Combine(permanentDir, entry.FullName);
+                        if (string.IsNullOrEmpty(entry.Name))
+                        {
+                            Directory.CreateDirectory(destPath);
+                            continue;
+                        }
+                        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
+                        SafeDeleteFile(destPath);
+                        entry.ExtractToFile(destPath, true);
+                    }
+                }
+
+                string patcherFile = System.IO.Path.Combine(permanentDir, "patcher.js");
+                if (!File.Exists(patcherFile))
+                {
+                    throw new Exception("Downloaded package does not contain patcher.js");
+                }
+
+                Log("Successfully installed latest Dimcord version from repo source!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log("Could not install from online repo: " + ex.Message);
+                return false;
+            }
+        }
+
         private void DoInject(DiscordInstall inst)
         {
             Log("Preparing to patch " + inst.Name + "...");
@@ -581,30 +709,35 @@ namespace Dimcord.Installer
             string permanentDir = System.IO.Path.Combine(appData, "Dimcord", "dist", "desktop");
             Directory.CreateDirectory(permanentDir);
 
-            Log("Installing Dimcord runtime files into AppData/Dimcord...");
-            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
+            bool installedFromRepo = TryInstallFromRepoSource(permanentDir);
+
+            if (!installedFromRepo)
             {
-                if (s != null)
+                Log("Extracting bundled Dimcord runtime files into AppData/Dimcord...");
+                using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream("payload.zip"))
                 {
-                    using (ZipArchive archive = new ZipArchive(s, ZipArchiveMode.Read))
+                    if (s != null)
                     {
-                        foreach (ZipArchiveEntry entry in archive.Entries)
+                        using (ZipArchive archive = new ZipArchive(s, ZipArchiveMode.Read))
                         {
-                            string destPath = System.IO.Path.Combine(permanentDir, entry.FullName);
-                            if (string.IsNullOrEmpty(entry.Name))
+                            foreach (ZipArchiveEntry entry in archive.Entries)
                             {
-                                Directory.CreateDirectory(destPath);
-                                continue;
+                                string destPath = System.IO.Path.Combine(permanentDir, entry.FullName);
+                                if (string.IsNullOrEmpty(entry.Name))
+                                {
+                                    Directory.CreateDirectory(destPath);
+                                    continue;
+                                }
+                                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
+                                SafeDeleteFile(destPath);
+                                entry.ExtractToFile(destPath, true);
                             }
-                            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
-                            SafeDeleteFile(destPath);
-                            entry.ExtractToFile(destPath, true);
                         }
                     }
-                }
-                else
-                {
-                    throw new Exception("Embedded payload resource missing.");
+                    else
+                    {
+                        throw new Exception("Embedded payload resource missing.");
+                    }
                 }
             }
 

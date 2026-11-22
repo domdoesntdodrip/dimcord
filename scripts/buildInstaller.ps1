@@ -16,9 +16,11 @@ if (-not (Test-Path (Join-Path $desktopDir "patcher.js"))) {
     node --require=./scripts/suppressExperimentalWarnings.js scripts/build/build.mjs
 }
 
-# 2. Package payload.zip (excluding map files)
+# 2. Package payload.zip & dist\desktop.zip (excluding map files)
 Write-Host "Packaging payload..."
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+$desktopZip = Join-Path $baseDir "dist\desktop.zip"
+if (Test-Path $desktopZip) { Remove-Item $desktopZip -Force }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $tempPayload = Join-Path $env:TEMP "dimcord_payload_build"
@@ -27,6 +29,7 @@ New-Item -ItemType Directory -Path $tempPayload | Out-Null
 
 Get-ChildItem -Path $desktopDir -Exclude "*.map" | Copy-Item -Destination $tempPayload -Recurse -Force
 [System.IO.Compression.ZipFile]::CreateFromDirectory($tempPayload, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+Copy-Item $zipPath $desktopZip -Force
 Remove-Item $tempPayload -Recurse -Force
 
 # 3. Ensure icon.ico exists

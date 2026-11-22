@@ -251,6 +251,89 @@ ipcMain.handle("get-installs", () => {
     return { installs, hasBuild, discordRunning: isDiscordRunning() };
 });
 
+async function installFromRepo(destDir) {
+    const repo = "domdoesntdodrip/dimcord";
+    log(`Checking repo for latest Dimcord release (${repo})...`);
+
+    let downloadUrl = null;
+    let sourceLabel = null;
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${repo}/releases`, {
+            headers: {
+                "User-Agent": "DimcordInstaller",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        });
+        if (res.ok) {
+            const releases = await res.json();
+            if (Array.isArray(releases)) {
+                const targetNames = ["desktop.zip", "payload.zip", "dimcord-desktop.zip", "dimcord.zip"];
+                for (const rel of releases) {
+                    if (rel.assets && Array.isArray(rel.assets)) {
+                        for (const target of targetNames) {
+                            const found = rel.assets.find(a => a.name.toLowerCase() === target);
+                            if (found) {
+                                downloadUrl = found.browser_download_url;
+                                sourceLabel = `${target} (${rel.tag_name || "release"})`;
+                                break;
+                            }
+                        }
+                    }
+                    if (downloadUrl) break;
+                }
+            }
+        }
+    } catch (e) {
+        log(`Releases API check note: ${e.message}`);
+    }
+
+    if (!downloadUrl) {
+        const directUrls = [
+            `https://github.com/${repo}/releases/latest/download/desktop.zip`,
+            `https://github.com/${repo}/releases/latest/download/payload.zip`,
+            `https://github.com/${repo}/releases/download/prereleasev1/desktop.zip`,
+            `https://github.com/${repo}/releases/download/prereleasev1/payload.zip`,
+            `https://raw.githubusercontent.com/${repo}/master/dist/desktop.zip`
+        ];
+        for (const testUrl of directUrls) {
+            try {
+                const head = await fetch(testUrl, { method: "HEAD", headers: { "User-Agent": "DimcordInstaller" } });
+                if (head.ok) {
+                    downloadUrl = testUrl;
+                    sourceLabel = testUrl;
+                    break;
+                }
+            } catch {}
+        }
+    }
+
+    if (!downloadUrl) {
+        log("No online release asset found in repository. Using local files.");
+        return false;
+    }
+
+    log(`Downloading latest Dimcord build from ${sourceLabel}...`);
+    const resp = await fetch(downloadUrl, { headers: { "User-Agent": "DimcordInstaller" } });
+    if (!resp.ok) throw new Error(`Download failed with status ${resp.status}`);
+    const buffer = Buffer.from(await resp.arrayBuffer());
+
+    log(`Downloaded ${Math.round(buffer.length / 1024)} KB. Extracting into AppData/Dimcord...`);
+    const fflate = require("fflate");
+    const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+
+    fs.mkdirSync(destDir, { recursive: true });
+    for (const [filename, content] of Object.entries(unzipped)) {
+        if (!content || content.length === 0) continue;
+        const filePath = path.join(destDir, filename);
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        fs.writeFileSync(filePath, Buffer.from(content));
+    }
+
+    log("Successfully installed latest Dimcord version from repo source!");
+    return true;
+}
+
 ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
     try {
         log(`Preparing to patch ${targetName || "Discord"}...`);
@@ -260,15 +343,21 @@ ipcMain.handle("inject", async (_e, resourcesDir, targetName) => {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (!fs.existsSync(DIST_DESKTOP) && !fs.existsSync(PERMANENT_INSTALL_DIR)) {
-            return { success: false, error: "Build directory missing (dist/desktop). Run pnpm build first." };
+        let installedFromRepo = false;
+        try {
+            installedFromRepo = await installFromRepo(PERMANENT_INSTALL_DIR);
+        } catch (e) {
+            log(`Could not install from online repo: ${e.message}`);
         }
 
-        // Copy files to permanent location in AppData
-        if (fs.existsSync(DIST_DESKTOP)) {
-            log("Installing Dimcord files into AppData/Dimcord...");
-            fs.mkdirSync(PERMANENT_INSTALL_DIR, { recursive: true });
-            fs.cpSync(DIST_DESKTOP, PERMANENT_INSTALL_DIR, { recursive: true });
+        if (!installedFromRepo) {
+            if (fs.existsSync(DIST_DESKTOP)) {
+                log("Installing Dimcord files from local build into AppData/Dimcord...");
+                fs.mkdirSync(PERMANENT_INSTALL_DIR, { recursive: true });
+                fs.cpSync(DIST_DESKTOP, PERMANENT_INSTALL_DIR, { recursive: true });
+            } else if (!fs.existsSync(PERMANENT_INSTALL_DIR)) {
+                return { success: false, error: "Build directory missing (dist/desktop) and online repo unreachable." };
+            }
         }
 
         const appAsar = path.join(resourcesDir, "app.asar");
